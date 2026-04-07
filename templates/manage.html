@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Администрирование | Корпоративный портал</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #2563eb; --bg: #f1f5f9; --border: #e2e8f0; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; color: #1e293b; padding-bottom: 50px; }
+
+        .navbar { background: #fff; border-bottom: 1px solid var(--border); padding: 15px 0; }
+
+        .admin-container { max-width: 1200px; margin: 40px auto; }
+        .panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+        .section-title { font-weight: 700; font-size: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; color: #334155; }
+
+        .group-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: 0.2s;
+            background: #fff;
+        }
+        .group-item:hover { border-color: var(--primary); }
+        .group-item.active { border-color: var(--primary); background: #f0f7ff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.05); }
+
+        .member-textarea {
+            width: 100%; border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px; font-size: 13px; font-family: monospace;
+            background: #f8fafc; min-height: 100px; margin-top: 10px;
+        }
+        .member-textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+        .ad-search-box { position: relative; }
+        .ad-search-input { border-radius: 8px; padding-left: 36px; border-color: var(--border); }
+        .ad-results-list { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 12px; background: #fff; }
+        .ad-entry { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .ad-entry:hover { background: #f1f5f9; }
+
+        .badge-ad { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; }
+        .user-type { background: #dcfce7; color: #166534; }
+        .group-type { background: #fef3c7; color: #92400e; }
+
+        .btn-action { border-radius: 8px; font-weight: 600; font-size: 13px; }
+    </style>
+</head>
+<body>
+<nav class="navbar"><div class="container d-flex justify-content-between px-4">
+    <a href="/" class="btn btn-link text-decoration-none fw-bold text-dark d-flex align-items-center gap-2">
+        <i data-lucide="chevron-left"></i> Назад к ресурсам
+    </a>
+    <h6 class="m-0 fw-bold">Управление доступом</h6>
+    <div class="small fw-semibold text-primary">energoprom.by</div>
+</div></nav>
+
+<div class="admin-container"><div class="row g-4">
+    <div class="col-md-7"><div class="panel">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="section-title"><i data-lucide="users"></i> Группы доступа</div>
+            <div class="d-flex gap-2">
+                <input type="text" id="gn" class="form-control form-control-sm" placeholder="Название группы">
+                <button class="btn btn-primary btn-sm btn-action px-3" onclick="addG()">Создать</button>
+            </div>
+        </div>
+        <div id="gList"></div>
+    </div></div>
+
+    <div class="col-md-5"><div class="panel">
+        <div class="section-title"><i data-lucide="search"></i> Поиск в Active Directory</div>
+        <p class="small text-muted mb-3">Выберите группу слева, затем кликните по найденному пользователю или группе AD для добавления.</p>
+        <div class="ad-search-box">
+            <i data-lucide="search" class="position-absolute" style="left: 12px; top: 12px; color: #94a3b8;" size="16"></i>
+            <input type="text" id="adSearch" class="form-control ad-search-input" placeholder="Поиск (минимум 2 буквы)..." oninput="searchAD()">
+        </div>
+        <div id="adResults" class="ad-results-list">
+            </div>
+    </div></div>
+</div></div>
+
+<script>
+    lucide.createIcons();
+    let activeId = null;
+    async function loadG() {
+        const r = await fetch('/get_groups');
+        const groups = await r.json();
+        document.getElementById('gList').innerHTML = groups.map(g => `
+            <div class="group-item ${activeId == g.id ? 'active' : ''}" id="card-${g.id}" onclick="activeId=${g.id};loadG()">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold small text-uppercase">${g.name} <small class="text-muted ms-2">${g.members.length} участников</small></span>
+                    <button class="btn btn-sm text-danger p-0" onclick="delG(${g.id})"><i data-lucide="trash-2" size="16"></i></button>
+                </div>
+                <textarea class="member-textarea" id="area-${g.id}" onchange="updM(${g.id}, this.value)" placeholder="Выберите пользователя или группу справа, чтобы добавить...">${g.members.join(', ')}</textarea>
+                <div id="s-${g.id}" class="small text-success mt-1 fw-bold" style="display:none">✓ Сохранено</div>
+            </div>`).join('');
+        lucide.createIcons();
+    }
+    // Функции JS аналогичны предыдущим (поиск, добавление, удаление)
+    async function searchAD() {
+        const q = document.getElementById('adSearch').value;
+        const resDiv = document.getElementById('adResults');
+        if (q.length < 2) { resDiv.innerHTML = ''; return; }
+        const r = await fetch(`/get_ad_entities?q=${encodeURIComponent(q)}`);
+        const results = await r.json();
+        resDiv.innerHTML = results.map(i => `
+            <div class="ad-entry" onclick="addToActive('${i.login}')">
+                <div><div class="fw-bold small">${i.name}</div><div class="text-muted" style="font-size:11px">${i.login}</div></div>
+                <span class="badge-ad ${i.type=='Юзер'?'user-type':'group-type'}">${i.type}</span>
+            </div>`).join('');
+    }
+    function addToActive(login) {
+        if (!activeId) return;
+        const area = document.getElementById(`area-${activeId}`);
+        let m = area.value.split(',').map(x => x.trim()).filter(x => x !== "");
+        if (!m.includes(login.toLowerCase())) { m.push(login.toLowerCase()); area.value = m.join(', '); updM(activeId, area.value); }
+    }
+    async function addG() { const n = document.getElementById('gn').value; if(!n) return; await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', name:n})}); document.getElementById('gn').value=''; loadG(); }
+    async function delG(id) { if(confirm('Удалить группу?')) { await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id:id})}); loadG(); } }
+    async function updM(id, val) {
+        const m = val.split(',').map(x => x.trim().toLowerCase()).filter(x => x !== "");
+        await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'update_members', id:id, members:m})});
+        loadG();
+    }
+    window.onload = loadG;
+</script>
+</body>
+</html>

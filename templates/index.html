@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корпоративный портал</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #0f172a; --border: #e2e8f0; --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+
+        body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+
+        /* Navbar - Clean White */
+        .navbar { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .logo { font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+
+        /* Categorized Grid - Vertical Layout (Best for Production) */
+        .main-container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+
+        .category-group { margin-bottom: 40px; }
+        .category-header {
+            font-weight: 700; font-size: 13px; color: #64748b;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid var(--border); padding-bottom: 10px;
+        }
+
+        .resource-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Production Resource Card */
+        .resource-card {
+            position: relative;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s ease-in-out;
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .resource-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-link { text-decoration: none; color: inherit; display: flex; gap: 16px; align-items: flex-start; }
+
+        .icon-container {
+            width: 44px; height: 44px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; border: 1px solid #f1f5f9;
+        }
+        .tile-icon { width: 24px; height: 24px; object-fit: contain; }
+
+        .card-body { flex-grow: 1; min-width: 0; }
+        .card-title { font-weight: 600; font-size: 15px; margin: 0 0 4px 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-desc { font-size: 13px; color: #64748b; line-height: 1.5; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Admin Controls - Discreet */
+        .admin-hud {
+            position: absolute; top: 12px; right: 12px;
+            display: flex; gap: 4px; opacity: 0; transition: 0.2s;
+        }
+        .resource-card:hover .admin-hud { opacity: 1; }
+        .hud-btn {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: #fff; border: 1px solid var(--border);
+            color: #64748b; display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .hud-btn:hover { background: #f8fafc; color: var(--primary); border-color: var(--primary); }
+        .btn-delete:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }
+
+        /* Search Bar - Clean & Focused */
+        .search-container { max-width: 500px; margin: 0 auto 40px; position: relative; }
+        .search-bar {
+            width: 100%; background: #fff; border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px 16px 12px 42px;
+            font-size: 14px; box-shadow: var(--card-shadow); transition: 0.2s;
+        }
+        .search-bar:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .search-icon { position: absolute; left: 14px; top: 13px; color: #94a3b8; }
+
+        /* Modal Overrides */
+        .modal-content { border-radius: 12px; border: none; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .modal-header { border-bottom: 1px solid var(--border); padding: 20px 24px; }
+        .modal-body { padding: 24px; }
+        .form-control, .form-select { border-radius: 8px; border: 1px solid var(--border); padding: 10px 12px; font-size: 14px; }
+        .form-control:focus { border-color: var(--primary); box-shadow: none; }
+        .btn-primary { background: var(--primary); border: none; border-radius: 8px; font-weight: 600; padding: 10px 20px; }
+
+        .group-checklist {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid var(--border);
+            max-height: 160px; overflow-y: auto;
+        }
+        .group-checklist label { font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569; }
+        .group-dropdown { position: relative; }
+        .group-dropdown-btn {
+            width: 100%;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #334155;
+            gap: 10px;
+        }
+        .group-dropdown-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .group-dropdown-btn:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .group-dropdown-menu {
+            display: none;
+            position: absolute;
+            z-index: 20;
+            width: 100%;
+            margin-top: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+            padding: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .group-dropdown.open .group-dropdown-menu { display: block; }
+        .group-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .group-option:hover { background: #f8fafc; }
+        .group-option.selected {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }
+        .group-check-icon { opacity: 0; color: #2563eb; }
+        .group-option.selected .group-check-icon { opacity: 1; }
+    </style>
+</head>
+<body class="{{ 'is-admin' if is_admin else '' }}">
+
+<nav class="navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" class="logo"><i data-lucide="shield-check" size="20"></i> Корпоративный портал</a>
+        <div class="d-flex align-items-center gap-2">
+            <span class="small fw-medium text-muted me-2">{{ user }}</span>
+            {% if is_admin %}
+                <a href="/manage" class="btn btn-outline-secondary btn-sm rounded-8 px-3">Администрирование</a>
+                <button class="btn btn-primary btn-sm rounded-8 px-3" data-bs-toggle="modal" data-bs-target="#addModal">+ Добавить ресурс</button>
+            {% endif %}
+            <a href="/logout" class="btn btn-light btn-sm rounded-circle p-2 ms-2"><i data-lucide="log-out" size="16"></i></a>
+        </div>
+    </div>
+</nav>
+
+<div class="main-container">
+    <div class="search-container">
+        <i data-lucide="search" class="search-icon" size="18"></i>
+        <input type="text" id="searchInput" class="search-bar" placeholder="Поиск сервисов и систем...">
+    </div>
+
+    <div id="resourcesGrid">
+        </div>
+</div>
+
+{% if is_admin %}
+<div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Добавление ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="addForm">
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" class="form-control" placeholder="Например: Почта, CRM, Service Desk" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label><input type="text" name="category" class="form-control" placeholder="Например: Коммуникации, Финансы, Инфраструктура" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" class="form-control" placeholder="https://" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" class="form-control" rows="2" placeholder="Коротко: для чего используется ресурс"></textarea></div>
+        <div class="mb-3">
+            <label class="small fw-bold text-muted mb-2">ДОСТУП ДЛЯ ГРУПП</label>
+            <div class="group-dropdown" id="addGroupsDropdown">
+                <button class="group-dropdown-btn" type="button" onclick="toggleGroupDropdown('addGroupsDropdown')">
+                    <span id="addGroupsLabel">Выберите группы доступа</span>
+                    <i data-lucide="chevron-down" size="16"></i>
+                </button>
+                <div class="group-dropdown-menu" id="addGroups"></div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mt-2">Сохранить ресурс</button>
+    </form></div>
+</div></div></div>
+
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Редактирование ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form id="editForm">
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" id="e_title" class="form-control" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label><input type="text" name="category" id="e_category" class="form-control" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" id="e_url" class="form-control" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" id="e_desc" class="form-control" rows="2"></textarea></div>
+        <div class="mb-3">
+            <label class="small fw-bold text-muted mb-2">ДОСТУП ДЛЯ ГРУПП</label>
+            <div class="group-dropdown" id="editGroupsDropdown">
+                <button class="group-dropdown-btn" type="button" onclick="toggleGroupDropdown('editGroupsDropdown')">
+                    <span id="editGroupsLabel">Выберите группы доступа</span>
+                    <i data-lucide="chevron-down" size="16"></i>
+                </button>
+                <div class="group-dropdown-menu" id="editGroups"></div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mt-2">Сохранить изменения</button>
+    </form></div>
+</div></div></div>
+{% endif %}
+
+<script>
+    lucide.createIcons();
+    const isAdmin = {{ 'true' if is_admin else 'false' }};
+    let allResources = [];
+
+    function getIcon(url) {
+        try { return `https://www.google.com/s2/favicons?sz=64&domain_url=${new URL(url).hostname}`; }
+        catch { return 'https://cdn-icons-png.flaticon.com/512/1243/1243924.png'; }
+    }
+
+    async function loadResources() {
+        const q = document.getElementById('searchInput').value;
+        const res = await fetch(`/get_resources?search=${encodeURIComponent(q)}`);
+        allResources = await res.json();
+        const grid = document.getElementById('resourcesGrid');
+        const cats = [...new Set(allResources.map(r => r.category))].sort();
+
+        grid.innerHTML = cats.map(cat => `
+            <div class="category-group">
+                <div class="category-header"><i data-lucide="layers" size="14"></i> ${cat}</div>
+                <div class="resource-grid sortable-list">
+                    ${allResources.filter(r => r.category === cat).map(item => `
+                        <div class="resource-card" data-id="${item.id}">
+                            ${isAdmin ? `<div class="admin-hud"><div class="hud-btn" onclick="openEdit(${item.id})"><i data-lucide="settings" size="14"></i></div><div class="hud-btn btn-delete" onclick="delItem(${item.id})"><i data-lucide="trash-2" size="14"></i></div></div>` : ''}
+                            <a href="${item.url}" target="_blank" class="card-link">
+                                <div class="icon-container">
+                                    <img src="${getIcon(item.url)}" class="tile-icon" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1243/1243924.png'">
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title">${item.title}</h6>
+                                    <p class="card-desc">${item.desc || ''}</p>
+                                </div>
+                            </a>
+                        </div>`).join('')}
+                </div>
+            </div>`).join('');
+        lucide.createIcons();
+        if (isAdmin) document.querySelectorAll('.sortable-list').forEach(l => new Sortable(l, { group: 'shared', animation: 150, onEnd: saveOrder }));
+    }
+
+    async function loadGroups() {
+        const res = await fetch('/get_groups');
+        const groups = await res.json();
+        const html = groups.map(g => `
+            <div class="group-option" data-value="${g.id}" data-name="${g.name}" onclick="toggleGroupOption(this)">
+                <span>${g.name}</span>
+                <i data-lucide="check" class="group-check-icon" size="16"></i>
+            </div>`).join('');
+        if(isAdmin) {
+            document.getElementById('addGroups').innerHTML = html;
+            document.getElementById('editGroups').innerHTML = html;
+            bindGroupInputs('addGroups');
+            bindGroupInputs('editGroups');
+            lucide.createIcons();
+            updateGroupLabels();
+        }
+    }
+
+    function openEdit(id) {
+        const item = allResources.find(r => r.id == id);
+        const f = document.getElementById('editForm');
+        f.dataset.id = item.id;
+        document.getElementById('e_title').value = item.title;
+        document.getElementById('e_category').value = item.category;
+        document.getElementById('e_url').value = item.url;
+        document.getElementById('e_desc').value = item.desc || '';
+        const curGids = item.group_ids ? item.group_ids.split(',') : [];
+        document.querySelectorAll('#editGroups .group-option').forEach(opt => {
+            opt.classList.toggle('selected', curGids.includes(opt.dataset.value));
+        });
+        syncHiddenInputs('editGroups');
+        updateGroupLabels();
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    async function delItem(id) { if (confirm('Удалить этот ресурс?')) { await fetch(`/delete/${id}`, { method: 'POST' }); loadResources(); } }
+
+    if (isAdmin) {
+        document.getElementById('addForm').onsubmit = async (e) => { e.preventDefault(); await fetch('/add', { method: 'POST', body: new FormData(e.target) }); loadResources(); bootstrap.Modal.getInstance(document.getElementById('addModal')).hide(); e.target.reset(); document.querySelectorAll('#addGroups .group-option').forEach(opt => opt.classList.remove('selected')); syncHiddenInputs('addGroups'); updateGroupLabels(); };
+        document.getElementById('editForm').onsubmit = async (e) => { e.preventDefault(); await fetch(`/edit/${e.target.dataset.id}`, { method: 'POST', body: new FormData(e.target) }); loadResources(); bootstrap.Modal.getInstance(document.getElementById('editModal')).hide(); };
+        async function saveOrder() {
+            const order = [];
+            document.querySelectorAll('.category-group').forEach(s => {
+                const cat = s.querySelector('.category-header').innerText.trim();
+                s.querySelectorAll('[data-id]').forEach(i => order.push({ id: parseInt(i.dataset.id), category: cat }));
+            });
+            await fetch('/reorder', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(order) });
+        }
+    }
+    function toggleGroupDropdown(id) {
+        document.querySelectorAll('.group-dropdown').forEach(el => {
+            if (el.id !== id) el.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+    function updateGroupLabels() {
+        const addSelectedNodes = [...document.querySelectorAll('#addGroups .group-option.selected')];
+        const editSelectedNodes = [...document.querySelectorAll('#editGroups .group-option.selected')];
+        const addSelected = addSelectedNodes.length;
+        const editSelected = editSelectedNodes.length;
+        const addLabel = document.getElementById('addGroupsLabel');
+        const editLabel = document.getElementById('editGroupsLabel');
+        if (addLabel) {
+            addLabel.textContent = addSelected
+                ? addSelectedNodes.map(n => n.dataset.name).join(', ')
+                : 'Выберите группы доступа';
+        }
+        if (editLabel) {
+            editLabel.textContent = editSelected
+                ? editSelectedNodes.map(n => n.dataset.name).join(', ')
+                : 'Выберите группы доступа';
+        }
+    }
+    function bindGroupInputs(containerId) {
+        const container = document.getElementById(containerId);
+        container.querySelectorAll('input[type="hidden"][name="access_group_ids"]').forEach(i => i.remove());
+        syncHiddenInputs(containerId);
+    }
+    function syncHiddenInputs(containerId) {
+        const container = document.getElementById(containerId);
+        container.querySelectorAll('input[type="hidden"][name="access_group_ids"]').forEach(i => i.remove());
+        container.querySelectorAll('.group-option.selected').forEach(opt => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'access_group_ids';
+            input.value = opt.dataset.value;
+            container.appendChild(input);
+        });
+    }
+    function toggleGroupOption(el) {
+        el.classList.toggle('selected');
+        const containerId = el.closest('.group-dropdown-menu').id;
+        syncHiddenInputs(containerId);
+        updateGroupLabels();
+    }
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.group-dropdown')) {
+            document.querySelectorAll('.group-dropdown').forEach(el => el.classList.remove('open'));
+        }
+    });
+    document.getElementById('searchInput').oninput = loadResources;
+    window.onload = async () => { await loadGroups(); loadResources(); };
+</script>
+</body>
+</html>
