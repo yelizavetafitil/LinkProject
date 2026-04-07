@@ -15,8 +15,8 @@ PythonProject1111 — веб-портал на Flask для публикации
 Как поднять проект с нуля
 -------------------------
 1) Склонируйте репозиторий:
-   git clone https://github.com/yelizavetafitil/LinkProject.git
-   cd LinkProject
+   git clone https://github.com/yelizavetafitil/PythonProject1111.git
+   cd PythonProject1111
 
 2) Создайте виртуальное окружение:
    Windows PowerShell:
