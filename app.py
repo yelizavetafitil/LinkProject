@@ -1,7 +1,7 @@
 import sqlite3
 import os
 import collections
-from flask import Flask, render_template, request, session, jsonify, redirect, url_for
+from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 
 # --- ЗАПЛАТКА ДЛЯ LDAP3 ---
 if not hasattr(collections, 'MutableMapping'):
@@ -28,6 +28,7 @@ LDAP_CONFIG = {
 
 MASTER_ADMINS = ['rapeiko', 'oc1']
 DB_PATH = 'database.db'
+LOGO_FILENAME = 'image2_hq.png'
 
 
 def get_db_connection():
@@ -59,12 +60,21 @@ def init_db():
         # 3. Группы
         conn.execute('CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
 
+        # 3.1 Разделы (категории ресурсов)
+        conn.execute('CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
+
         # 4. Участники
         conn.execute('''
             CREATE TABLE IF NOT EXISTS group_members (
                 group_id INTEGER, username TEXT, 
                 PRIMARY KEY (group_id, username)
             )''')
+        # Синхронизируем справочник разделов с уже существующими ресурсами
+        existing_categories = conn.execute(
+            "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
+        ).fetchall()
+        for row in existing_categories:
+            conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (row['category'],))
         conn.commit()
 def get_user_ad_groups(conn, user_dn):
     search_filter = f"(member:1.2.840.113556.1.4.1941:={user_dn})"
@@ -125,6 +135,16 @@ def logout():
     return redirect(url_for('login_page'))
 
 
+@app.route('/assets/logo')
+def project_logo():
+    return send_from_directory(app.root_path, LOGO_FILENAME)
+
+
+@app.route('/assets/<path:filename>')
+def project_asset(filename):
+    return send_from_directory(app.root_path, filename)
+
+
 @app.route('/get_groups')
 def get_groups():
     if not session.get('logged_in'): return jsonify([])
@@ -136,6 +156,18 @@ def get_groups():
             m = conn.execute('SELECT username FROM group_members WHERE group_id = ?', (g['id'],)).fetchall()
             res.append({'id': g['id'], 'name': g['name'], 'members': [x['username'] for x in m]})
         return jsonify(res)
+    finally:
+        conn.close()
+
+
+@app.route('/get_categories')
+def get_categories():
+    if not session.get('logged_in'):
+        return jsonify([])
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('SELECT name FROM categories ORDER BY name COLLATE NOCASE').fetchall()
+        return jsonify([r['name'] for r in rows])
     finally:
         conn.close()
 
@@ -166,6 +198,7 @@ def get_ad_entities():
 def get_resources():
     if not session.get('logged_in'): return jsonify([]), 403
     u = session.get('username')
+    search_query = request.args.get('search', '').strip().lower()
     user_ad_groups = session.get('ad_groups', [])
     conn = get_db_connection()
     try:
@@ -176,7 +209,20 @@ def get_resources():
             GROUP BY r.id
             ORDER BY r.position ASC
         ''').fetchall()
-        if u in MASTER_ADMINS: return jsonify([dict(row) for row in rows])
+        def matches_search(resource_row):
+            if not search_query:
+                return True
+            haystack = " ".join([
+                str(resource_row.get('title') or ''),
+                str(resource_row.get('desc') or ''),
+                str(resource_row.get('category') or ''),
+                str(resource_row.get('url') or '')
+            ]).lower()
+            return search_query in haystack
+
+        if u in MASTER_ADMINS:
+            admin_rows = [dict(row) for row in rows]
+            return jsonify([row for row in admin_rows if matches_search(row)])
 
         members_rows = conn.execute("SELECT group_id, username FROM group_members").fetchall()
         group_map = {}
@@ -188,8 +234,10 @@ def get_resources():
         visible = []
         for r in rows:
             g_ids = r['group_ids'].split(',') if r['group_ids'] else []
+            row_dict = dict(r)
             if not g_ids:
-                visible.append(dict(r))
+                if matches_search(row_dict):
+                    visible.append(row_dict)
                 continue
             can_see = False
             for gid in g_ids:
@@ -197,7 +245,8 @@ def get_resources():
                 if u in allowed_entities or any(ag in allowed_entities for ag in user_ad_groups):
                     can_see = True
                     break
-            if can_see: visible.append(dict(r))
+            if can_see and matches_search(row_dict):
+                visible.append(row_dict)
         return jsonify(visible)
     finally:
         conn.close()
@@ -206,13 +255,21 @@ def get_resources():
 @app.route('/add', methods=['POST'])
 def add_resource():
     if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
-    t, u, c, d = request.form.get('title'), request.form.get('url'), request.form.get('category'), request.form.get(
-        'desc')
+    t, u = request.form.get('title'), request.form.get('url')
+    c_existing = (request.form.get('category_existing') or '').strip()
+    if c_existing == '__new__':
+        c_existing = ''
+    c_new = (request.form.get('category_new') or '').strip()
+    c = c_new or c_existing or (request.form.get('category') or '').strip()
+    d = request.form.get('desc')
+    if not c:
+        return jsonify(success=False, error='Укажите раздел'), 400
     gids = request.form.getlist('access_group_ids')
     conn = get_db_connection()
     try:
         cur = conn.cursor()
         cur.execute("INSERT INTO resources (title, url, category, desc) VALUES (?, ?, ?, ?)", (t, u, c, d))
+        cur.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (c,))
         rid = cur.lastrowid
         for gid in gids: cur.execute("INSERT INTO resource_group_access (resource_id, group_id) VALUES (?, ?)",
                                      (rid, int(gid)))
@@ -225,12 +282,20 @@ def add_resource():
 @app.route('/edit/<int:res_id>', methods=['POST'])
 def edit_resource(res_id):
     if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
-    t, u, c, d = request.form.get('title'), request.form.get('url'), request.form.get('category'), request.form.get(
-        'desc')
+    t, u = request.form.get('title'), request.form.get('url')
+    c_existing = (request.form.get('category_existing') or '').strip()
+    if c_existing == '__new__':
+        c_existing = ''
+    c_new = (request.form.get('category_new') or '').strip()
+    c = c_new or c_existing or (request.form.get('category') or '').strip()
+    d = request.form.get('desc')
+    if not c:
+        return jsonify(success=False, error='Укажите раздел'), 400
     gids = request.form.getlist('access_group_ids')
     conn = get_db_connection()
     try:
         conn.execute("UPDATE resources SET title=?, url=?, category=?, desc=? WHERE id=?", (t, u, c, d, res_id))
+        conn.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (c,))
         conn.execute("DELETE FROM resource_group_access WHERE resource_id=?", (res_id,))
         for gid in gids: conn.execute("INSERT INTO resource_group_access (resource_id, group_id) VALUES (?, ?)",
                                       (res_id, int(gid)))

@@ -3,25 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Корпоративный портал</title>
+    <title>РУП Белнипиэнергопром</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #0f172a; --border: #e2e8f0; --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+        :root { --primary: #144080; --primary-soft: #1f4e92; --bg: #f2f6fb; --text: #10253f; --border: #dbe5f2; --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
 
         body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
 
         /* Navbar - Clean White */
         .navbar { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .logo { font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo { text-decoration: none; display: flex; align-items: center; justify-content: flex-start; }
+        .logo img {
+            height: 40px;
+            width: auto;
+            display: block;
+        }
 
         /* Categorized Grid - Vertical Layout (Best for Production) */
-        .main-container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        .main-container { margin: 0 auto; padding: 30px 0 40px; }
 
-        .category-group { margin-bottom: 40px; }
+        #resourcesGrid { display: flex; flex-direction: column; gap: 28px; }
+        .category-group { margin-bottom: 0; }
         .category-header {
             font-weight: 700; font-size: 13px; color: #64748b;
             text-transform: uppercase; letter-spacing: 0.05em;
@@ -87,13 +93,13 @@
         .btn-delete:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }
 
         /* Search Bar - Clean & Focused */
-        .search-container { max-width: 500px; margin: 0 auto 40px; position: relative; }
+        .search-container { max-width: 520px; margin: 0 auto 28px; position: relative; }
         .search-bar {
             width: 100%; background: #fff; border: 1px solid var(--border);
             border-radius: 10px; padding: 12px 16px 12px 42px;
             font-size: 14px; box-shadow: var(--card-shadow); transition: 0.2s;
         }
-        .search-bar:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .search-bar:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14); }
         .search-icon { position: absolute; left: 14px; top: 13px; color: #94a3b8; }
 
         /* Modal Overrides */
@@ -103,6 +109,31 @@
         .form-control, .form-select { border-radius: 8px; border: 1px solid var(--border); padding: 10px 12px; font-size: 14px; }
         .form-control:focus { border-color: var(--primary); box-shadow: none; }
         .btn-primary { background: var(--primary); border: none; border-radius: 8px; font-weight: 600; padding: 10px 20px; }
+        .btn-primary:hover { background: var(--primary-soft); }
+        .btn-primary:focus, .btn-outline-secondary:focus, .btn-light:focus {
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.18) !important;
+        }
+        .btn-outline-secondary {
+            color: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline-secondary:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .btn-light {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .btn-light:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-soft);
+            color: #fff;
+        }
 
         .group-checklist {
             display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -123,11 +154,12 @@
             align-items: center;
             color: #334155;
             gap: 10px;
+            cursor: pointer;
         }
         .group-dropdown-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .group-dropdown-btn:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
         }
         .group-dropdown-menu {
             display: none;
@@ -143,33 +175,68 @@
             max-height: 220px;
             overflow-y: auto;
         }
+        .group-search {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .group-search:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
         .group-dropdown.open .group-dropdown-menu { display: block; }
+        .category-new-wrap { margin-top: 8px; }
+        .category-new-wrap.hidden { display: none; }
         .group-option {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px;
-            border-radius: 6px;
+            padding: 10px 8px;
+            border-radius: 0;
             font-size: 13px;
             color: #475569;
             cursor: pointer;
             border: 1px solid transparent;
         }
+        .group-option + .group-option { border-top: 1px solid #eef2f7; }
         .group-option:hover { background: #f8fafc; }
         .group-option.selected {
-            background: #eff6ff;
-            color: #1d4ed8;
-            border-color: #bfdbfe;
+            background: #e9f0fb;
+            color: #0f3b79;
+            border-color: transparent;
         }
-        .group-check-icon { opacity: 0; color: #2563eb; }
+        .group-check-icon { opacity: 0; color: var(--primary); }
         .group-option.selected .group-check-icon { opacity: 1; }
+        .category-option.selected .group-check-icon { opacity: 1; }
+        .category-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 8px;
+            border-radius: 0;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .category-option + .category-option { border-top: 1px solid #eef2f7; }
+        .category-option:hover { background: #f8fafc; }
+        .category-option.selected {
+            background: #e9f0fb;
+            color: #0f3b79;
+            border-color: transparent;
+        }
     </style>
 </head>
 <body class="{{ 'is-admin' if is_admin else '' }}">
 
 <nav class="navbar">
     <div class="container d-flex justify-content-between align-items-center">
-        <a href="/" class="logo"><i data-lucide="shield-check" size="20"></i> Корпоративный портал</a>
+        <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип РУП Белнипиэнергопром"></a>
         <div class="d-flex align-items-center gap-2">
             <span class="small fw-medium text-muted me-2">{{ user }}</span>
             {% if is_admin %}
@@ -181,7 +248,7 @@
     </div>
 </nav>
 
-<div class="main-container">
+<div class="main-container container">
     <div class="search-container">
         <i data-lucide="search" class="search-icon" size="18"></i>
         <input type="text" id="searchInput" class="search-bar" placeholder="Поиск сервисов и систем...">
@@ -196,7 +263,20 @@
     <div class="modal-header"><h6 class="modal-title fw-bold">Добавление ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><form id="addForm">
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" class="form-control" placeholder="Например: Почта, CRM, Service Desk" required></div>
-        <div class="mb-3"><label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label><input type="text" name="category" class="form-control" placeholder="Например: Коммуникации, Финансы, Инфраструктура" required></div>
+        <div class="mb-3">
+            <label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label>
+            <div class="group-dropdown" id="addCategoryDropdown">
+                <button class="group-dropdown-btn" type="button" onclick="toggleCategoryDropdown('addCategoryDropdown')">
+                    <span id="addCategoryLabel">Выберите раздел</span>
+                    <i data-lucide="chevron-down" size="16"></i>
+                </button>
+                <div class="group-dropdown-menu" id="addCategoryOptions"></div>
+            </div>
+            <input type="hidden" name="category_existing" id="addCategoryValue">
+            <div id="addCategoryNewWrap" class="category-new-wrap hidden">
+                <input type="text" name="category_new" id="addCategoryNew" class="form-control" placeholder="Введите название нового раздела">
+            </div>
+        </div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" class="form-control" placeholder="https://" required></div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" class="form-control" rows="2" placeholder="Коротко: для чего используется ресурс"></textarea></div>
         <div class="mb-3">
@@ -217,7 +297,20 @@
     <div class="modal-header"><h6 class="modal-title fw-bold">Редактирование ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><form id="editForm">
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" id="e_title" class="form-control" required></div>
-        <div class="mb-3"><label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label><input type="text" name="category" id="e_category" class="form-control" required></div>
+        <div class="mb-3">
+            <label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label>
+            <div class="group-dropdown" id="editCategoryDropdown">
+                <button class="group-dropdown-btn" type="button" onclick="toggleCategoryDropdown('editCategoryDropdown')">
+                    <span id="editCategoryLabel">Выберите раздел</span>
+                    <i data-lucide="chevron-down" size="16"></i>
+                </button>
+                <div class="group-dropdown-menu" id="editCategoryOptions"></div>
+            </div>
+            <input type="hidden" name="category_existing" id="editCategoryValue">
+            <div id="editCategoryNewWrap" class="category-new-wrap hidden">
+                <input type="text" name="category_new" id="editCategoryNew" class="form-control" placeholder="Введите название нового раздела">
+            </div>
+        </div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" id="e_url" class="form-control" required></div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" id="e_desc" class="form-control" rows="2"></textarea></div>
         <div class="mb-3">
@@ -239,6 +332,7 @@
     lucide.createIcons();
     const isAdmin = {{ 'true' if is_admin else 'false' }};
     let allResources = [];
+    let allCategories = [];
 
     function getIcon(url) {
         try { return `https://www.google.com/s2/favicons?sz=64&domain_url=${new URL(url).hostname}`; }
@@ -278,11 +372,15 @@
     async function loadGroups() {
         const res = await fetch('/get_groups');
         const groups = await res.json();
-        const html = groups.map(g => `
+        const optionsHtml = groups.map(g => `
             <div class="group-option" data-value="${g.id}" data-name="${g.name}" onclick="toggleGroupOption(this)">
                 <span>${g.name}</span>
                 <i data-lucide="check" class="group-check-icon" size="16"></i>
             </div>`).join('');
+        const html = `
+            <input type="text" class="group-search" placeholder="Поиск группы..." oninput="filterGroupOptions(this)">
+            ${optionsHtml}
+        `;
         if(isAdmin) {
             document.getElementById('addGroups').innerHTML = html;
             document.getElementById('editGroups').innerHTML = html;
@@ -292,15 +390,118 @@
             updateGroupLabels();
         }
     }
+    function categoryOptionsHtml(current = '') {
+        const sorted = [...new Set(allCategories)].sort((a, b) => a.localeCompare(b, 'ru'));
+        const items = [{ value: '__new__', label: '+ Создать новый раздел' }]
+            .concat(sorted.map(cat => ({ value: cat, label: cat })));
+        const optionsHtml = items.map(item => `
+            <div class="category-option ${item.value === current ? 'selected' : ''}"
+                 data-value="${item.value}"
+                 data-label="${item.label}"
+                 onclick="selectCategoryOption(this)">
+                <span>${item.label}</span>
+                <i data-lucide="check" class="group-check-icon" size="16"></i>
+            </div>
+        `).join('');
+        return `
+            <input type="text" class="group-search" placeholder="Поиск раздела..." oninput="filterCategoryOptions(this)">
+            ${optionsHtml}
+        `;
+    }
+    async function loadCategories() {
+        const res = await fetch('/get_categories');
+        allCategories = await res.json();
+        const addOptions = document.getElementById('addCategoryOptions');
+        const editOptions = document.getElementById('editCategoryOptions');
+        if (addOptions) addOptions.innerHTML = categoryOptionsHtml('');
+        if (editOptions) editOptions.innerHTML = categoryOptionsHtml('');
+        setCategoryValue('add', '');
+        setCategoryValue('edit', '');
+        lucide.createIcons();
+    }
+    function setCategoryValue(mode, value) {
+        const hidden = document.getElementById(mode === 'add' ? 'addCategoryValue' : 'editCategoryValue');
+        const label = document.getElementById(mode === 'add' ? 'addCategoryLabel' : 'editCategoryLabel');
+        const optionsWrap = document.getElementById(mode === 'add' ? 'addCategoryOptions' : 'editCategoryOptions');
+        if (hidden) hidden.value = value;
+        if (label) {
+            if (!value) label.textContent = 'Выберите раздел';
+            else if (value === '__new__') label.textContent = '+ Создать новый раздел';
+            else label.textContent = value;
+        }
+        if (optionsWrap) {
+            optionsWrap.querySelectorAll('.category-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.value === value);
+            });
+        }
+        toggleCategoryInput(mode, value);
+    }
+    function toggleCategoryInput(mode, value) {
+        const isNew = value === '__new__';
+        const wrap = document.getElementById(mode === 'add' ? 'addCategoryNewWrap' : 'editCategoryNewWrap');
+        const input = document.getElementById(mode === 'add' ? 'addCategoryNew' : 'editCategoryNew');
+        if (!wrap || !input) return;
+        wrap.classList.toggle('hidden', !isNew);
+        input.required = isNew;
+        if (!isNew) input.value = '';
+    }
+    function toggleCategoryDropdown(id) {
+        document.querySelectorAll('.group-dropdown').forEach(el => {
+            if (el.id !== id) el.classList.remove('open');
+        });
+        const dropdown = document.getElementById(id);
+        const willOpen = !dropdown.classList.contains('open');
+        dropdown.classList.toggle('open');
+        if (willOpen) resetDropdownSearch(dropdown, '.category-option');
+    }
+    function selectCategoryOption(el) {
+        const menu = el.closest('.group-dropdown-menu');
+        const mode = menu.id === 'addCategoryOptions' ? 'add' : 'edit';
+        setCategoryValue(mode, el.dataset.value);
+        menu.closest('.group-dropdown').classList.remove('open');
+    }
+    function filterCategoryOptions(input) {
+        const q = input.value.trim().toLowerCase();
+        const options = input.closest('.group-dropdown-menu').querySelectorAll('.category-option');
+        options.forEach(opt => {
+            const visible = opt.dataset.label.toLowerCase().includes(q);
+            opt.style.display = visible ? 'flex' : 'none';
+        });
+    }
+    function resetDropdownSearch(dropdownEl, optionsSelector) {
+        const search = dropdownEl.querySelector('.group-search');
+        if (search) search.value = '';
+        dropdownEl.querySelectorAll(optionsSelector).forEach(opt => { opt.style.display = 'flex'; });
+    }
+    function filterGroupOptions(input) {
+        const q = input.value.trim().toLowerCase();
+        const options = input.closest('.group-dropdown-menu').querySelectorAll('.group-option');
+        options.forEach(opt => {
+            const visible = opt.dataset.name.toLowerCase().includes(q);
+            opt.style.display = visible ? 'flex' : 'none';
+        });
+    }
 
     function openEdit(id) {
         const item = allResources.find(r => r.id == id);
         const f = document.getElementById('editForm');
         f.dataset.id = item.id;
         document.getElementById('e_title').value = item.title;
-        document.getElementById('e_category').value = item.category;
         document.getElementById('e_url').value = item.url;
         document.getElementById('e_desc').value = item.desc || '';
+        const editOptions = document.getElementById('editCategoryOptions');
+        const editNewInput = document.getElementById('editCategoryNew');
+        if (editOptions) {
+            if (allCategories.includes(item.category)) {
+                editOptions.innerHTML = categoryOptionsHtml(item.category);
+                setCategoryValue('edit', item.category);
+            } else {
+                editOptions.innerHTML = categoryOptionsHtml('__new__');
+                setCategoryValue('edit', '__new__');
+                if (editNewInput) editNewInput.value = item.category;
+            }
+            lucide.createIcons();
+        }
         const curGids = item.group_ids ? item.group_ids.split(',') : [];
         document.querySelectorAll('#editGroups .group-option').forEach(opt => {
             opt.classList.toggle('selected', curGids.includes(opt.dataset.value));
@@ -313,8 +514,28 @@
     async function delItem(id) { if (confirm('Удалить этот ресурс?')) { await fetch(`/delete/${id}`, { method: 'POST' }); loadResources(); } }
 
     if (isAdmin) {
-        document.getElementById('addForm').onsubmit = async (e) => { e.preventDefault(); await fetch('/add', { method: 'POST', body: new FormData(e.target) }); loadResources(); bootstrap.Modal.getInstance(document.getElementById('addModal')).hide(); e.target.reset(); document.querySelectorAll('#addGroups .group-option').forEach(opt => opt.classList.remove('selected')); syncHiddenInputs('addGroups'); updateGroupLabels(); };
-        document.getElementById('editForm').onsubmit = async (e) => { e.preventDefault(); await fetch(`/edit/${e.target.dataset.id}`, { method: 'POST', body: new FormData(e.target) }); loadResources(); bootstrap.Modal.getInstance(document.getElementById('editModal')).hide(); };
+        document.getElementById('addForm').onsubmit = async (e) => {
+            e.preventDefault();
+            await fetch('/add', { method: 'POST', body: new FormData(e.target) });
+            await loadCategories();
+            loadResources();
+            bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+            e.target.reset();
+            document.querySelectorAll('#addGroups .group-option').forEach(opt => opt.classList.remove('selected'));
+            syncHiddenInputs('addGroups');
+            updateGroupLabels();
+            const addOptions = document.getElementById('addCategoryOptions');
+            if (addOptions) addOptions.innerHTML = categoryOptionsHtml('');
+            setCategoryValue('add', '');
+            lucide.createIcons();
+        };
+        document.getElementById('editForm').onsubmit = async (e) => {
+            e.preventDefault();
+            await fetch(`/edit/${e.target.dataset.id}`, { method: 'POST', body: new FormData(e.target) });
+            await loadCategories();
+            loadResources();
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        };
         async function saveOrder() {
             const order = [];
             document.querySelectorAll('.category-group').forEach(s => {
@@ -323,12 +544,45 @@
             });
             await fetch('/reorder', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(order) });
         }
+
+        const addModalEl = document.getElementById('addModal');
+        const editModalEl = document.getElementById('editModal');
+        addModalEl.addEventListener('hidden.bs.modal', () => {
+            const form = document.getElementById('addForm');
+            form.reset();
+            document.querySelectorAll('#addGroups .group-option').forEach(opt => opt.classList.remove('selected'));
+            syncHiddenInputs('addGroups');
+            updateGroupLabels();
+            const addOptions = document.getElementById('addCategoryOptions');
+            if (addOptions) addOptions.innerHTML = categoryOptionsHtml('');
+            setCategoryValue('add', '');
+            document.getElementById('addGroupsDropdown').classList.remove('open');
+            document.getElementById('addCategoryDropdown').classList.remove('open');
+            lucide.createIcons();
+        });
+        editModalEl.addEventListener('hidden.bs.modal', () => {
+            const form = document.getElementById('editForm');
+            form.reset();
+            delete form.dataset.id;
+            document.querySelectorAll('#editGroups .group-option').forEach(opt => opt.classList.remove('selected'));
+            syncHiddenInputs('editGroups');
+            updateGroupLabels();
+            const editOptions = document.getElementById('editCategoryOptions');
+            if (editOptions) editOptions.innerHTML = categoryOptionsHtml('');
+            setCategoryValue('edit', '');
+            document.getElementById('editGroupsDropdown').classList.remove('open');
+            document.getElementById('editCategoryDropdown').classList.remove('open');
+            lucide.createIcons();
+        });
     }
     function toggleGroupDropdown(id) {
         document.querySelectorAll('.group-dropdown').forEach(el => {
             if (el.id !== id) el.classList.remove('open');
         });
-        document.getElementById(id).classList.toggle('open');
+        const dropdown = document.getElementById(id);
+        const willOpen = !dropdown.classList.contains('open');
+        dropdown.classList.toggle('open');
+        if (willOpen) resetDropdownSearch(dropdown, '.group-option');
     }
     function updateGroupLabels() {
         const addSelectedNodes = [...document.querySelectorAll('#addGroups .group-option.selected')];
@@ -376,7 +630,7 @@
         }
     });
     document.getElementById('searchInput').oninput = loadResources;
-    window.onload = async () => { await loadGroups(); loadResources(); };
+    window.onload = async () => { await loadGroups(); await loadCategories(); loadResources(); };
 </script>
 </body>
 </html>

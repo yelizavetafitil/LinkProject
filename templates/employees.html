@@ -2,22 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Справочник | Enterprise Hub</title>
+    <title>Справочник | РУП Белнипиэнергопром</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #f2f2f7; font-family: 'Inter', sans-serif; }
-        .navbar { background: white; border-bottom: 1px solid #d1d1d6; padding: 1rem 0; }
-        .content { background: white; border-radius: 20px; padding: 25px; margin-top: 30px; border: 1px solid #d1d1d6; }
-        .search-box { border-radius: 12px; padding: 12px; border: 1px solid #d1d1d6; width: 100%; margin-bottom: 20px; }
+        :root { --primary: #144080; --bg: #f2f6fb; --border: #dbe5f2; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; }
+        .navbar { background: white; border-bottom: 1px solid var(--border); padding: 1rem 0; }
+        .content { background: white; border-radius: 20px; padding: 25px; margin-top: 30px; border: 1px solid var(--border); }
+        .search-box { border-radius: 12px; padding: 12px; border: 1px solid var(--border); width: 100%; margin-bottom: 20px; }
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .brand-title { color: var(--primary); }
+        .btn-link { color: var(--primary); }
+        .btn-link:hover { color: #1f4e92; }
     </style>
 </head>
 <body>
 <nav class="navbar mb-4">
     <div class="container d-flex justify-content-between align-items-center">
         <a href="/" class="btn btn-link text-decoration-none fw-bold">← К ресурсам</a>
-        <h4 class="m-0 fw-bold">Справочник сотрудников</h4>
-        <div class="small">Всего: <span id="cnt" class="badge bg-primary">0</span></div>
+        <h4 class="m-0 fw-bold brand-title">Справочник сотрудников РУП «Белнипиэнергопром»</h4>
+        <div class="small">Всего: <span id="cnt" class="badge" style="background:#144080;">0</span></div>
     </div>
 </nav>
 <div class="container">
