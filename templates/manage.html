@@ -90,11 +90,45 @@
         }
         .chip-remove:hover { color: #0b2a56; }
 
-        .ad-search-box { position: relative; }
-        .ad-search-input { border-radius: 8px; padding-left: 36px; border-color: var(--border); }
-        .ad-search-input:focus {
+        .ad-search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 12px;
+            background: #fff;
+        }
+        .ad-search-box:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .ad-search-box .ad-search-icon {
+            flex-shrink: 0;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+        }
+        .ad-search-box .ad-search-icon svg { display: block; }
+        .ad-search-input {
+            border: none !important;
+            border-radius: 8px;
+            padding-left: 0;
+            box-shadow: none !important;
+            flex: 1 1 auto;
+            min-width: 0;
+            background: transparent !important;
+        }
+        .ad-search-input:focus { box-shadow: none !important; }
+        .ad-search-input:-webkit-autofill,
+        .ad-search-input:-webkit-autofill:hover,
+        .ad-search-input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+            box-shadow: 0 0 0 1000px #fff inset !important;
+            -webkit-text-fill-color: #1e293b !important;
+            transition: background-color 99999s ease-out;
         }
         .ad-results-list { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 10px; background: #fff; }
         .ad-entry { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
@@ -181,7 +215,7 @@
                     }
                 </div>
                 <div class="ad-search-box">
-                    <i data-lucide="search" class="position-absolute" style="left: 12px; top: 12px; color: #94a3b8;" size="16"></i>
+                    <span class="ad-search-icon"><i data-lucide="search" size="16"></i></span>
                     <input type="text" id="adSearch-${g.id}" class="form-control ad-search-input" placeholder="Поиск в AD для этой группы..." oninput="searchAD(${g.id})">
                 </div>
                 <div id="adResults-${g.id}" class="ad-results-list"></div>
