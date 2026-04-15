@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Администрирование | РУП Белнипиэнергопром</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #144080; --primary-soft: #1f4e92; --bg: #f2f6fb; --border: #dbe5f2; }
@@ -145,6 +146,9 @@
         .btn-primary:focus { box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.18); }
         .btn-link { color: var(--primary); }
         .btn-link:hover { color: var(--primary-soft); }
+        .modal-content { border-radius: 12px; border: none; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .modal-header { border-bottom: 1px solid var(--border); padding: 20px 24px; }
+        .modal-body { padding: 24px; }
     </style>
 </head>
 <body>
@@ -169,6 +173,24 @@
     </div></div>
 </div></div>
 
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Подтверждение удаления</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmDeleteText" class="mb-0 text-secondary">Удалить группу?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmDeleteOk">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     function renderIcons() {
         const iconPaths = {
@@ -187,6 +209,33 @@
     }
     renderIcons();
     let groupsState = [];
+    let confirmDeleteModal;
+    let confirmDeleteResolver = null;
+
+    function initConfirmDeleteModal() {
+        const confirmEl = document.getElementById('confirmDeleteModal');
+        const confirmText = document.getElementById('confirmDeleteText');
+        const confirmOk = document.getElementById('confirmDeleteOk');
+        confirmDeleteModal = new bootstrap.Modal(confirmEl);
+        confirmOk.addEventListener('click', () => {
+            if (confirmDeleteResolver) {
+                confirmDeleteResolver(true);
+                confirmDeleteResolver = null;
+            }
+            confirmDeleteModal.hide();
+        });
+        confirmEl.addEventListener('hidden.bs.modal', () => {
+            if (confirmDeleteResolver) {
+                confirmDeleteResolver(false);
+                confirmDeleteResolver = null;
+            }
+        });
+        window.showDeleteGroupConfirm = (message) => {
+            confirmText.textContent = message;
+            confirmDeleteModal.show();
+            return new Promise((resolve) => { confirmDeleteResolver = resolve; });
+        };
+    }
 
     function escapeHtml(text) {
         return String(text)
@@ -274,8 +323,16 @@
     }
 
     async function addG() { const n = document.getElementById('gn').value; if(!n) return; await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', name:n})}); document.getElementById('gn').value=''; loadG(); }
-    async function delG(id) { if(confirm('Удалить группу?')) { await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id:id})}); loadG(); } }
-    window.onload = loadG;
+    async function delG(id) {
+        const shouldDelete = await showDeleteGroupConfirm('Удалить группу?');
+        if (!shouldDelete) return;
+        await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id:id})});
+        loadG();
+    }
+    window.onload = () => {
+        initConfirmDeleteModal();
+        loadG();
+    };
 </script>
 </body>
 </html>

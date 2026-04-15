@@ -29,13 +29,20 @@
             border-radius: 30px;
             box-shadow: 0 18px 38px rgba(6, 18, 43, 0.34);
             width: 100%;
-            max-width: 430px;
+            max-width: 460px;
             text-align: center;
             border: 1px solid rgba(221, 230, 243, 0.9);
         }
         .hub-logo-img { width: 360px; max-width: 100%; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto; }
         .auth-title { color: var(--accent); font-weight: 700; font-size: 20px; margin-bottom: 6px; }
-        .auth-subtitle { color: #4b5f7a; font-size: 14px; line-height: 1.5; margin-bottom: 22px; }
+        .auth-subtitle {
+            color: #4b5f7a;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0 auto 22px;
+            width: 100%;
+            text-align: center;
+        }
         .login-field {
             display: flex;
             align-items: center;
@@ -91,7 +98,7 @@
 <div class="login-card">
     <img class="hub-logo-img" src="{{ url_for('project_logo') }}" alt="Логотип РУП Белнипиэнергопром">
     <div class="auth-title">Авторизация</div>
-    <div class="auth-subtitle">Авторизуйтесь в портале РУП «Белнипиэнергопром», чтобы получить доступ к внутренним ресурсам.</div>
+    <div class="auth-subtitle"><span style="white-space: nowrap;">Авторизуйтесь на портале РУП&nbsp;«Белнипиэнергопром»,</span> чтобы получить доступ к внутренним ресурсам.</div>
     <div id="err" class="text-danger small mb-3 fw-bold" style="display:none;">Неверные учетные данные</div>
     <div class="login-field">
         <span class="login-field-icon" aria-hidden="true">

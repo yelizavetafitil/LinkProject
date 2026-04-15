@@ -163,6 +163,9 @@
             border-color: var(--primary-soft);
             color: #fff;
         }
+        .topbar-btn {
+            border-radius: 6px !important;
+        }
 
         .group-checklist {
             display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -295,13 +298,13 @@
 <body class="{{ 'is-admin' if is_admin else '' }}">
 
 <nav class="navbar">
-    <div class="container d-flex justify-content-between align-items-center">
+    <div class="container d-flex justify-content-between align-items-end">
         <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип РУП Белнипиэнергопром"></a>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-end gap-2">
             <span class="small fw-medium text-muted me-2">{{ user }}</span>
             {% if is_admin %}
-                <a href="/manage" class="btn btn-outline-secondary btn-sm rounded-8 px-3">Администрирование</a>
-                <button class="btn btn-primary btn-sm rounded-8 px-3" data-bs-toggle="modal" data-bs-target="#addModal">+ Добавить ресурс</button>
+                <a href="/manage" class="btn btn-outline-secondary btn-sm topbar-btn px-3">Администрирование</a>
+                <button class="btn btn-primary btn-sm topbar-btn px-3" data-bs-toggle="modal" data-bs-target="#addModal">+ Добавить ресурс</button>
             {% endif %}
             <a href="/logout" class="btn btn-light btn-sm rounded-circle p-2 ms-2"><i data-lucide="log-out" size="16"></i></a>
         </div>
@@ -386,6 +389,24 @@
         <button type="submit" class="btn btn-primary w-100 mt-2">Сохранить изменения</button>
     </form></div>
 </div></div></div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Подтверждение удаления</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalText" class="mb-0 text-secondary">Удалить этот ресурс?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmModalOk">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}
 
 <script>
@@ -595,7 +616,41 @@
         new bootstrap.Modal(document.getElementById('editModal')).show();
     }
 
-    async function delItem(id) { if (confirm('Удалить этот ресурс?')) { await fetch(`/delete/${id}`, { method: 'POST' }); loadResources(); } }
+    let confirmModal;
+    let confirmModalResolver = null;
+
+    function initConfirmModal() {
+        const confirmEl = document.getElementById('confirmModal');
+        if (!confirmEl) return;
+        const confirmText = document.getElementById('confirmModalText');
+        const confirmOk = document.getElementById('confirmModalOk');
+        confirmModal = new bootstrap.Modal(confirmEl);
+        confirmOk.addEventListener('click', () => {
+            if (confirmModalResolver) {
+                confirmModalResolver(true);
+                confirmModalResolver = null;
+            }
+            confirmModal.hide();
+        });
+        confirmEl.addEventListener('hidden.bs.modal', () => {
+            if (confirmModalResolver) {
+                confirmModalResolver(false);
+                confirmModalResolver = null;
+            }
+        });
+        window.showDeleteConfirm = (message) => {
+            confirmText.textContent = message;
+            confirmModal.show();
+            return new Promise((resolve) => { confirmModalResolver = resolve; });
+        };
+    }
+
+    async function delItem(id) {
+        const shouldDelete = await showDeleteConfirm('Удалить этот ресурс?');
+        if (!shouldDelete) return;
+        await fetch(`/delete/${id}`, { method: 'POST' });
+        loadResources();
+    }
 
     if (isAdmin) {
         document.getElementById('addForm').onsubmit = async (e) => {
@@ -714,7 +769,12 @@
         }
     });
     document.getElementById('searchInput').oninput = loadResources;
-    window.onload = async () => { await loadGroups(); await loadCategories(); loadResources(); };
+    window.onload = async () => {
+        initConfirmModal();
+        await loadGroups();
+        await loadCategories();
+        loadResources();
+    };
 </script>
 </body>
 </html>
