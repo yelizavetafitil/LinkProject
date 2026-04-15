@@ -7,10 +7,37 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #144080; --primary-soft: #1f4e92; --bg: #f2f6fb; --border: #dbe5f2; }
-        body { background: var(--bg); font-family: 'Inter', sans-serif; color: #1e293b; padding-bottom: 50px; }
+        :root {
+            --primary: #1c4f9c;
+            --primary-soft: #2a65c0;
+            --bg: #edf3fb;
+            --border: #d8e2f0;
+            --text: #1c2f4b;
+        }
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.18) 0%, rgba(130, 230, 255, 0) 48%),
+                linear-gradient(180deg, rgba(8, 26, 72, 0.56) 0%, rgba(8, 26, 72, 0.66) 100%),
+                url("{{ url_for('project_asset', filename='back4.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            padding-bottom: 50px;
+        }
 
-        .navbar { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 0; }
+        .navbar {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            box-shadow: 0 2px 10px rgba(20, 42, 75, 0.06);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
         .topbar {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
@@ -25,8 +52,35 @@
         }
         .brand-domain { color: var(--primary) !important; }
 
-        .admin-container { max-width: 1200px; margin: 28px auto; }
-        .panel { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .admin-container { max-width: 1200px; margin: 24px auto; }
+        .admin-hero {
+            background: rgba(255, 255, 255, 0.84);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 8px 20px rgba(17, 46, 90, 0.08);
+        }
+        .admin-hero-title {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f4f96;
+        }
+        .admin-hero-subtitle {
+            margin: 0;
+            color: #5a7090;
+            font-size: 14px;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            padding: 22px;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 8px 20px rgba(17, 46, 90, 0.08);
+        }
         .groups-panel { width: 100%; }
 
         .section-title { font-weight: 700; font-size: 16px; margin-bottom: 0; display: flex; align-items: center; gap: 8px; color: #334155; }
@@ -37,6 +91,7 @@
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 16px;
+            flex-wrap: wrap;
         }
         .create-group {
             display: flex;
@@ -47,13 +102,18 @@
         #gList { display: grid; gap: 12px; }
         .group-item {
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            transition: 0.2s;
-            background: #fff;
+            border-radius: 12px;
+            padding: 14px 14px 12px;
+            transition: 0.2s ease;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,252,255,0.95) 100%);
+            box-shadow: 0 4px 10px rgba(17, 46, 90, 0.06);
         }
-        .group-item:hover { border-color: var(--primary); }
-        .group-item.active { border-color: var(--primary); background: #f8fbff; box-shadow: 0 0 0 4px rgba(20, 64, 128, 0.08); }
+        .group-item:hover { border-color: #8fb3e6; box-shadow: 0 10px 20px rgba(17, 46, 90, 0.1); transform: translateY(-1px); }
+        .group-item.active {
+            border-color: var(--primary);
+            background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+            box-shadow: 0 0 0 3px rgba(28, 79, 156, 0.1), 0 10px 18px rgba(17, 46, 90, 0.08);
+        }
 
         .member-list {
             display: flex;
@@ -67,9 +127,9 @@
             align-items: center;
             gap: 8px;
             font-size: 12px;
-            background: #e9f0fb;
+            background: #eef4ff;
             color: #10376f;
-            border: 1px solid #c6d8f0;
+            border: 1px solid #cdddF4;
             border-radius: 999px;
             padding: 5px 10px;
             max-width: 100%;
@@ -132,9 +192,9 @@
             transition: background-color 99999s ease-out;
         }
         .ad-results-list { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 10px; background: #fff; }
-        .ad-entry { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .ad-entry { padding: 12px 16px; border-bottom: 1px solid #eef3f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .ad-entry:last-child { border-bottom: none; }
-        .ad-entry:hover { background: #f1f5f9; }
+        .ad-entry:hover { background: #f4f8ff; }
 
         .badge-ad { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; }
         .user-type { background: #dcfce7; color: #166534; }
@@ -143,12 +203,16 @@
         .btn-action { border-radius: 8px; font-weight: 600; font-size: 13px; }
         .btn-primary { background: var(--primary); border-color: var(--primary); }
         .btn-primary:hover { background: var(--primary-soft); border-color: var(--primary-soft); }
-        .btn-primary:focus { box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.18); }
+        .btn-primary:focus { box-shadow: 0 0 0 3px rgba(28, 79, 156, 0.18); }
         .btn-link { color: var(--primary); }
         .btn-link:hover { color: var(--primary-soft); }
         .modal-content { border-radius: 12px; border: none; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
         .modal-header { border-bottom: 1px solid var(--border); padding: 20px 24px; }
         .modal-body { padding: 24px; }
+        @media (max-width: 768px) {
+            .create-group { width: 100%; }
+            .groups-toolbar { align-items: stretch; }
+        }
     </style>
 </head>
 <body>
@@ -160,7 +224,12 @@
     <div></div>
 </div></nav>
 
-<div class="admin-container"><div class="row g-4">
+<div class="admin-container">
+    <div class="admin-hero">
+        <h5 class="admin-hero-title">Администрирование доступа</h5>
+        <p class="admin-hero-subtitle">Создавайте группы, добавляйте участников из AD и управляйте доступом к ресурсам в одном окне.</p>
+    </div>
+    <div class="row g-4">
     <div class="col-12"><div class="panel groups-panel">
         <div class="groups-toolbar">
             <div class="section-title"><i data-lucide="users"></i> Группы доступа</div>
