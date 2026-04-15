@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Телефонный справочник | РУП Белнипиэнергопром</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1c4f9c;
+            --primary-soft: #2a65c0;
+            --bg: #edf3fb;
+            --text: #1c2f4b;
+            --muted-text: #667f9f;
+            --border: #d8e2f0;
+            --card-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+        }
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.18) 0%, rgba(130, 230, 255, 0) 48%),
+                linear-gradient(180deg, rgba(8, 26, 72, 0.56) 0%, rgba(8, 26, 72, 0.66) 100%),
+                url("{{ url_for('project_asset', filename='back4.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: var(--text);
+            font-family: "Inter", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(20, 42, 75, 0.06);
+        }
+        .logo img { height: 40px; width: auto; display: block; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .topbar-user { font-size: 15px; color: #4d678b; margin-right: 4px; }
+        .topbar-btn {
+            height: 40px;
+            border-radius: 10px !important;
+            padding: 0 16px !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .btn-outline-secondary {
+            color: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline-secondary:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
+        .main-container { margin: 0 auto; padding: 26px 0 34px; }
+        .search-container {
+            max-width: 760px;
+            margin: 0 auto 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0 16px 0 18px;
+            box-shadow: var(--card-shadow);
+        }
+        .search-container:focus-within {
+            border-color: #94b4e4;
+            box-shadow: 0 0 0 3px rgba(98, 141, 209, 0.14), 0 10px 20px rgba(17, 46, 90, 0.12);
+        }
+        .search-icon-wrap { color: #8aa1bf; flex-shrink: 0; line-height: 0; }
+        .search-bar {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            padding: 12px 0;
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--text);
+        }
+        .search-bar:focus { outline: none; }
+        .contacts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .contact-card {
+            background: rgba(255, 255, 255, 0.88);
+            border-radius: 14px;
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+            padding: 16px;
+            transition: all 0.2s ease-in-out;
+        }
+        .contact-card:hover {
+            border-color: #98b8e5;
+            box-shadow: 0 12px 22px rgba(17, 46, 90, 0.14);
+            transform: translateY(-1px);
+        }
+        .card-header-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid #e7eef8;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+        }
+        .user-name { font-weight: 600; color: var(--text); display: block; }
+        .user-pos { color: var(--muted-text); font-size: 13px; }
+        .dept-badge {
+            display: inline-block;
+            background: #e9f0fb;
+            color: #0f3b79;
+            border: 1px solid #d2e0f5;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .phone-list { display: flex; flex-direction: column; gap: 8px; }
+        .phone-link {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+        }
+        .phone-link:hover { color: var(--primary); }
+        .phone-link i { color: #7e95b4; width: 14px; }
+        .phone-link.home { color: var(--muted-text); }
+        .empty-state {
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            box-shadow: var(--card-shadow);
+            border-radius: 14px;
+            color: #6f86a6;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип компании"></a>
+        <div class="topbar-actions">
+            <span class="topbar-user fw-medium text-muted">{{ user }}</span>
+            <a href="/" class="btn btn-outline-secondary btn-sm topbar-btn">К ресурсам</a>
+            <a href="/logout" class="btn btn-light btn-sm topbar-btn">Выход</a>
+        </div>
+    </div>
+</nav>
+
+<div class="main-container container">
+    <div class="search-container">
+        <span class="search-icon-wrap"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="text" id="searchInput" class="search-bar" placeholder="Поиск по сотруднику, отделу или номеру...">
+    </div>
+
+    <div id="phoneTable" class="contacts-grid">
+        {% for c in contacts %}
+        <div class="contact-card" data-search="{{ (c.surname ~ ' ' ~ c.name ~ ' ' ~ c.pos ~ ' ' ~ c.dept ~ ' ' ~ c.work ~ ' ' ~ c.mobile ~ ' ' ~ c.home)|lower }}">
+            <div class="card-header-row">
+                <div>
+                    <span class="user-name">{{ c.surname }} {{ c.name }}</span>
+                    <span class="user-pos">{{ c.pos }}</span>
+                </div>
+                <i class="fa-solid fa-address-card text-secondary"></i>
+            </div>
+            <div class="mb-2"><span class="dept-badge">{{ c.dept }}</span></div>
+            <div class="phone-list">
+                {% if c.work %}<a href="tel:{{ c.work }}" class="phone-link"><i class="fa-solid fa-briefcase"></i> {{ c.work }}</a>{% endif %}
+                {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="phone-link"><i class="fa-solid fa-mobile-screen-button"></i> {{ c.mobile }}</a>{% endif %}
+                {% if c.home %}<a href="tel:{{ c.home }}" class="phone-link home"><i class="fa-solid fa-house"></i> {{ c.home }}</a>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="noResults" class="empty-state text-center py-5 d-none mt-3">
+        <i class="fa-solid fa-face-frown fa-2x mb-3"></i>
+        <p class="mb-0">Ничего не найдено по вашему запросу</p>
+    </div>
+</div>
+
+<script>
+    const rows = Array.from(document.querySelectorAll("#phoneTable .contact-card"));
+    const noResults = document.getElementById("noResults");
+
+    function applyFilter(value) {
+        const filter = value.trim().toLowerCase();
+        let hasResults = false;
+        for (const row of rows) {
+            const visible = (row.dataset.search || "").includes(filter);
+            row.classList.toggle("d-none", !visible);
+            if (visible) hasResults = true;
+        }
+        noResults.classList.toggle("d-none", hasResults);
+    }
+
+    function debounce(fn, delayMs) {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn(...args), delayMs);
+        };
+    }
+
+    document.getElementById("searchInput").addEventListener("input", debounce((event) => {
+        applyFilter(event.target.value);
+    }, 120));
+</script>
+</body>
+</html>

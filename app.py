@@ -1,7 +1,9 @@
 import sqlite3
 import os
 import collections
+import re
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
+import pandas as pd
 
 # --- ЗАПЛАТКА ДЛЯ LDAP3 ---
 if not hasattr(collections, 'MutableMapping'):
@@ -29,6 +31,10 @@ LDAP_CONFIG = {
 MASTER_ADMINS = ['rapeiko', 'oc1']
 DB_PATH = 'database.db'
 LOGO_FILENAME = 'image2_hq.png'
+PHONEBOOK_PATH = 'phonebook.xlsx'
+PHONEBOOK_COLUMNS = ['dept', 'pos', 'surname', 'name', 'work', 'home', 'mobile']
+_phonebook_cache = None
+_phonebook_mtime = None
 
 
 def get_db_connection():
@@ -36,6 +42,33 @@ def get_db_connection():
     conn.execute('PRAGMA journal_mode=WAL;')
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def format_phone(phone):
+    source = str(phone).replace('.0', '').strip()
+    digits = re.sub(r'\D', '', source)
+    if len(digits) == 12:
+        return f"+{digits[:3]}-{digits[3:5]}-{digits[5:8]}-{digits[8:10]}-{digits[10:]}"
+    return source
+
+
+def get_phonebook_contacts():
+    global _phonebook_cache, _phonebook_mtime
+    if not os.path.exists(PHONEBOOK_PATH):
+        return []
+
+    current_mtime = os.path.getmtime(PHONEBOOK_PATH)
+    if _phonebook_cache is not None and _phonebook_mtime == current_mtime:
+        return _phonebook_cache
+
+    df = pd.read_excel(PHONEBOOK_PATH, names=PHONEBOOK_COLUMNS)
+    df['work'] = df['work'].apply(format_phone)
+    df['mobile'] = df['mobile'].apply(format_phone)
+    df['home'] = df['home'].apply(format_phone)
+
+    _phonebook_cache = df.fillna('').to_dict(orient='records')
+    _phonebook_mtime = current_mtime
+    return _phonebook_cache
 
 
 def init_db():
@@ -129,6 +162,22 @@ def manage_page():
     return render_template('manage.html', user=session.get('username'))
 
 
+@app.route('/manage/categories')
+def manage_categories_page():
+    if not session.get('logged_in') or session.get('username') not in MASTER_ADMINS:
+        return redirect(url_for('index'))
+    return render_template('manage_categories.html', user=session.get('username'))
+
+
+@app.route('/phonebook')
+def phonebook_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    is_admin = session.get('username') in MASTER_ADMINS
+    contacts = get_phonebook_contacts()
+    return render_template('phonebook.html', is_admin=is_admin, user=session.get('username'), contacts=contacts)
+
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -168,6 +217,24 @@ def get_categories():
     try:
         rows = conn.execute('SELECT name FROM categories ORDER BY name COLLATE NOCASE').fetchall()
         return jsonify([r['name'] for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/get_categories_overview')
+def get_categories_overview():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('''
+            SELECT c.name AS name, COUNT(r.id) AS resource_count
+            FROM categories c
+            LEFT JOIN resources r ON TRIM(r.category) = c.name
+            GROUP BY c.name
+            ORDER BY c.name COLLATE NOCASE
+        ''').fetchall()
+        return jsonify([{'name': r['name'], 'resource_count': r['resource_count']} for r in rows])
     finally:
         conn.close()
 
@@ -328,6 +395,102 @@ def reorder():
                          (index, entry['category'], entry['id']))
         conn.commit()
         return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/manage_category', methods=['POST'])
+def manage_category():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False), 403
+    data = request.json or {}
+    action = (data.get('action') or '').strip()
+    conn = get_db_connection()
+    try:
+        if action == 'create':
+            category_name = (data.get('category_name') or '').strip()
+            if not category_name:
+                return jsonify(success=False, error='Укажите название нового раздела'), 400
+            exists = conn.execute('SELECT 1 FROM categories WHERE name = ?', (category_name,)).fetchone()
+            if exists:
+                return jsonify(success=False, error='Раздел с таким названием уже существует'), 409
+            conn.execute('INSERT INTO categories (name) VALUES (?)', (category_name,))
+            conn.commit()
+            return jsonify(success=True)
+
+        if action == 'rename':
+            old_name = (data.get('old_name') or '').strip()
+            new_name = (data.get('new_name') or '').strip()
+            if not old_name or not new_name:
+                return jsonify(success=False, error='Укажите старое и новое название раздела'), 400
+            if old_name == new_name:
+                return jsonify(success=False, error='Название раздела не изменилось'), 400
+            exists = conn.execute('SELECT 1 FROM categories WHERE name = ?', (old_name,)).fetchone()
+            if not exists:
+                return jsonify(success=False, error='Раздел не найден'), 404
+            conflict = conn.execute('SELECT 1 FROM categories WHERE name = ?', (new_name,)).fetchone()
+            if conflict:
+                return jsonify(success=False, error='Раздел с таким названием уже существует'), 409
+            conn.execute('UPDATE resources SET category = ? WHERE category = ?', (new_name, old_name))
+            conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (new_name,))
+            conn.execute('DELETE FROM categories WHERE name = ?', (old_name,))
+            conn.commit()
+            return jsonify(success=True)
+
+        if action == 'delete':
+            category_name = (data.get('category_name') or '').strip()
+            transfer_mode = (data.get('transfer_mode') or '').strip()
+            target_category = (data.get('target_category') or '').strip()
+            resource_moves = data.get('resource_moves') or {}
+            if not category_name:
+                return jsonify(success=False, error='Укажите раздел для удаления'), 400
+            exists = conn.execute('SELECT 1 FROM categories WHERE name = ?', (category_name,)).fetchone()
+            if not exists:
+                return jsonify(success=False, error='Раздел не найден'), 404
+            resources = conn.execute(
+                'SELECT id FROM resources WHERE category = ? ORDER BY id',
+                (category_name,)
+            ).fetchall()
+            resource_ids = [str(r['id']) for r in resources]
+
+            if resource_ids:
+                if transfer_mode == 'single':
+                    if not target_category:
+                        return jsonify(success=False, error='Выберите целевой раздел для ресурсов'), 400
+                    if target_category == category_name:
+                        return jsonify(success=False, error='Нельзя переносить в удаляемый раздел'), 400
+                    conn.execute('UPDATE resources SET category = ? WHERE category = ?', (target_category, category_name))
+                    conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (target_category,))
+                elif transfer_mode == 'split':
+                    if not isinstance(resource_moves, dict):
+                        return jsonify(success=False, error='Некорректные данные распределения'), 400
+                    targets_to_create = set()
+                    for rid in resource_ids:
+                        target = str(resource_moves.get(rid, '')).strip()
+                        if not target:
+                            return jsonify(success=False, error='Укажите целевой раздел для каждого ресурса'), 400
+                        if target == category_name:
+                            return jsonify(success=False, error='Нельзя переносить в удаляемый раздел'), 400
+                        targets_to_create.add(target)
+                    for t in targets_to_create:
+                        conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (t,))
+                    for rid in resource_ids:
+                        target = str(resource_moves.get(rid, '')).strip()
+                        conn.execute('UPDATE resources SET category = ? WHERE id = ?', (target, int(rid)))
+                elif transfer_mode == 'delete_all':
+                    conn.execute(
+                        'DELETE FROM resource_group_access WHERE resource_id IN (SELECT id FROM resources WHERE category = ?)',
+                        (category_name,)
+                    )
+                    conn.execute('DELETE FROM resources WHERE category = ?', (category_name,))
+                else:
+                    return jsonify(success=False, error='Выберите режим обработки ресурсов'), 400
+
+            conn.execute('DELETE FROM categories WHERE name = ?', (category_name,))
+            conn.commit()
+            return jsonify(success=True)
+
+        return jsonify(success=False, error='Неизвестное действие'), 400
     finally:
         conn.close()
 
