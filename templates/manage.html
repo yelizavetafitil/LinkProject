@@ -48,7 +48,9 @@
             color: var(--primary);
             text-align: center;
             font-size: 15px;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         .brand-domain { color: var(--primary) !important; }
 
@@ -114,6 +116,12 @@
             background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
             box-shadow: 0 0 0 3px rgba(28, 79, 156, 0.1), 0 10px 18px rgba(17, 46, 90, 0.08);
         }
+        .group-title {
+            min-width: 0;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
 
         .member-list {
             display: flex;
@@ -135,9 +143,9 @@
             max-width: 100%;
         }
         .member-chip span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
             max-width: 220px;
         }
         .chip-remove {
@@ -193,6 +201,8 @@
         }
         .ad-results-list { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 10px; background: #fff; }
         .ad-entry { padding: 12px 16px; border-bottom: 1px solid #eef3f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .ad-entry > div { min-width: 0; }
+        .ad-entry .fw-bold { overflow-wrap: anywhere; word-break: break-word; }
         .ad-entry:last-child { border-bottom: none; }
         .ad-entry:hover { background: #f4f8ff; }
 
@@ -319,7 +329,7 @@
         document.getElementById('gList').innerHTML = groupsState.map(g => `
             <div class="group-item active" id="card-${g.id}">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold small text-uppercase">${escapeHtml(g.name)} <small class="text-muted ms-2">${g.members.length} участников</small></span>
+                    <span class="group-title fw-bold small text-uppercase">${escapeHtml(g.name)} <small class="text-muted ms-2">${g.members.length} участников</small></span>
                     <button class="btn btn-sm text-danger p-0" onclick="delG(${g.id})"><i data-lucide="trash-2" size="16"></i></button>
                 </div>
                 <div class="member-list">
