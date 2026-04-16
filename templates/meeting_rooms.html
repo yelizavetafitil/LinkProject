@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -100,9 +102,40 @@
         .section-subtitle { margin: 4px 0 0; color: #6d84a2; font-size: 13px; }
         .booking-layout {
             display: grid;
-            grid-template-columns: minmax(360px, 1fr) minmax(300px, 340px);
-            gap: 16px;
-            align-items: start;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .action-toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .action-toolbar .btn {
+            min-width: 180px;
+            height: 42px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 16px rgba(17, 46, 90, 0.14);
+        }
+        .action-toolbar .btn-primary,
+        .action-toolbar .btn-outline-secondary {
+            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%);
+            border: 1px solid #1c4f9c;
+            color: #fff !important;
+        }
+        .action-toolbar .btn-primary:hover,
+        .action-toolbar .btn-outline-secondary:hover {
+            background: linear-gradient(180deg, #3372cf 0%, #245fb7 100%);
+            border-color: #245fb7;
+            color: #fff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(17, 46, 90, 0.2);
         }
         .booking-form {
             display: grid;
@@ -270,12 +303,7 @@
             color: #607998;
             font-size: 13px;
         }
-        .room-panel {
-            height: fit-content;
-            position: static;
-            max-height: none;
-            overflow: visible;
-        }
+        .room-panel { height: fit-content; }
         .room-toolbar {
             display: flex;
             gap: 8px;
@@ -329,6 +357,35 @@
             margin-bottom: 12px;
             width: 100%;
         }
+        .schedule-date-tools {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .date-filter-input {
+            max-width: 170px;
+        }
+        .date-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #cfe0f5;
+            background: #f5f9ff;
+            color: #2b578f;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .date-chip button {
+            border: none;
+            background: transparent;
+            color: #496f9f;
+            padding: 0;
+            line-height: 1;
+            font-size: 12px;
+        }
         .schedule-search {
             width: 100%;
             margin-left: 0;
@@ -375,6 +432,171 @@
             background: transparent;
             box-shadow: none;
             border: none;
+        }
+        .planner-wrap {
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.84);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+            padding: 12px;
+        }
+        .planner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            padding: 4px 2px 12px;
+            border-bottom: 1px solid #dfe8f5;
+        }
+        .planner-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #23487f;
+        }
+        .planner-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .planner-nav-btn {
+            min-width: 38px;
+            height: 34px;
+            border-radius: 9px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .planner-mode-btn {
+            height: 34px;
+            border-radius: 9px;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .planner-calendar {
+            min-height: 520px;
+        }
+        .planner-empty {
+            margin-top: 8px;
+            color: #6b84a2;
+            font-size: 13px;
+            text-align: center;
+        }
+        .fc .fc-toolbar { display: none !important; }
+        .fc-theme-standard .fc-scrollgrid {
+            border: 1px solid #d8e4f5;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .fc-theme-standard td, .fc-theme-standard th {
+            border-color: #e8eef8;
+            background: rgba(255, 255, 255, 0.96);
+        }
+        .fc-timegrid-slot {
+            height: 46px !important;
+        }
+        .fc-timegrid-slot-label-cushion {
+            color: #6783a6;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .fc-col-header-cell-cushion {
+            color: #2b4f80;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+        .fc .fc-day-today {
+            background: rgba(36, 92, 179, 0.06) !important;
+        }
+        .fc .fc-highlight {
+            background: rgba(36, 92, 179, 0.08) !important;
+        }
+        .fc .fc-daygrid-day-number {
+            color: #294d7c;
+            font-weight: 600;
+        }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+            color: #1f5cb5;
+        }
+        .fc .fc-day-other .fc-daygrid-day-number {
+            color: #98a8bd;
+        }
+        .fc .fc-daygrid-day-frame {
+            padding: 6px 8px;
+        }
+        .fc .fc-daygrid-day-events {
+            margin-top: 4px;
+        }
+        .fc .fc-daygrid-event {
+            border-radius: 999px !important;
+            padding: 2px 8px !important;
+            border: 1px solid #18478f !important;
+            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%) !important;
+            box-shadow: 0 4px 10px rgba(18, 54, 106, 0.18);
+        }
+        .fc .fc-daygrid-event .fc-event-main,
+        .fc .fc-daygrid-event .fc-event-title,
+        .fc .fc-daygrid-event .fc-event-time {
+            color: #f7fbff !important;
+            font-weight: 600;
+            text-shadow: none;
+        }
+        .fc .fc-daygrid-event .fc-event-time {
+            opacity: 0.9;
+        }
+        .fc .fc-daygrid-event-dot {
+            display: none !important;
+        }
+        .fc-event {
+            border: 1px solid #18478f !important;
+            border-radius: 8px !important;
+            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%) !important;
+            box-shadow: 0 6px 12px rgba(22, 63, 122, 0.22);
+            cursor: pointer;
+        }
+        .fc-event-title {
+            font-weight: 600;
+            font-size: 12px;
+            color: #f7fbff;
+        }
+        .fc-event-time {
+            font-size: 11px;
+            color: #eef5ff;
+        }
+        .fc .fc-timegrid-event-harness {
+            margin-inline: 2px;
+        }
+        .fc .fc-timegrid-event {
+            min-height: 36px;
+        }
+        .fc .fc-event:hover {
+            filter: brightness(1.05);
+        }
+        .fc-timegrid-now-indicator-line { border-color: #ef4452; }
+        .fc-timegrid-now-indicator-arrow { border-color: #ef4452; }
+        .fc .fc-button-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .fc .fc-button-primary:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-soft);
         }
         .booking-head, .booking-row {
             display: grid;
@@ -518,9 +740,7 @@
             border-top-color: var(--primary);
         }
         @media (max-width: 1100px) {
-            .booking-layout {
-                grid-template-columns: 1fr;
-            }
+            .booking-layout { grid-template-columns: 1fr; }
         }
         @media (max-width: 991px) {
             .booking-row {
@@ -563,6 +783,16 @@
     </section>
 
     <div class="booking-layout">
+        <div class="action-toolbar">
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#bookingFormCollapse" aria-expanded="false" aria-controls="bookingFormCollapse">
+                Добавить бронь
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#roomsCollapse" aria-expanded="false" aria-controls="roomsCollapse">
+                Переговорки
+            </button>
+        </div>
+
+        <div class="collapse" id="bookingFormCollapse">
         <section class="panel">
             <div class="panel-header">
                 <div>
@@ -622,7 +852,9 @@
                 </ul>
             </div>
         </section>
+        </div>
 
+        <div class="collapse" id="roomsCollapse">
         <section class="panel room-panel">
             <div class="panel-header">
                 <div>
@@ -638,6 +870,7 @@
             </div>
             <div id="roomList" class="room-list"></div>
         </section>
+        </div>
     </div>
 
     <section class="panel mt-3">
@@ -647,6 +880,14 @@
                 <p class="section-subtitle">Все будущие и текущие брони в одном списке.</p>
             </div>
             <div class="schedule-toolbar">
+                <div class="schedule-date-tools d-none">
+                    <input id="listDateFilter" type="text" class="form-control form-control-sm date-filter-input" placeholder="Дата: ДД.ММ.ГГГГ">
+                    <button id="todayFilterBtn" type="button" class="btn btn-outline-secondary btn-sm">Сегодня</button>
+                    <span id="activeDateChip" class="date-chip d-none">
+                        <span id="activeDateLabel">Дата</span>
+                        <button id="clearDateFilterBtn" type="button" title="Сбросить дату">✕</button>
+                    </span>
+                </div>
                 <div class="schedule-search-wrap">
                     <span class="schedule-search-icon" aria-hidden="true">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -658,9 +899,20 @@
                 </div>
             </div>
         </div>
-        <p class="hint-text">Нажмите на строку брони, чтобы отредактировать или удалить ее.</p>
-        <div class="table-wrap">
-            <div id="bookingList"></div>
+        <p class="hint-text">Кликните по событию в календаре для редактирования или удаления.</p>
+        <div class="planner-wrap">
+            <div class="planner-header">
+                <h3 id="plannerTitle" class="planner-title">Календарь встреч</h3>
+                <div class="planner-controls">
+                    <button id="plannerPrevBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" title="Предыдущий период">‹</button>
+                    <button id="plannerNextBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" title="Следующий период">›</button>
+                    <button id="plannerMonthBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">Месяц</button>
+                    <button id="plannerDayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">День</button>
+                    <button id="plannerTodayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">Сегодня</button>
+                </div>
+            </div>
+            <div id="plannerCalendar" class="planner-calendar"></div>
+            <div id="plannerEmpty" class="planner-empty d-none">На выбранную дату нет встреч.</div>
         </div>
     </section>
 </div>
@@ -716,12 +968,31 @@
     const dateInput = document.getElementById("dateInput");
     const startInput = document.getElementById("startInput");
     const endInput = document.getElementById("endInput");
+    const bookingFormCollapseEl = document.getElementById("bookingFormCollapse");
+    const roomsCollapseEl = document.getElementById("roomsCollapse");
+    const listDateFilter = document.getElementById("listDateFilter");
+    const todayFilterBtn = document.getElementById("todayFilterBtn");
+    const activeDateChip = document.getElementById("activeDateChip");
+    const activeDateLabel = document.getElementById("activeDateLabel");
+    const clearDateFilterBtn = document.getElementById("clearDateFilterBtn");
+    const plannerWrap = document.querySelector(".planner-wrap");
+    const plannerTitle = document.getElementById("plannerTitle");
+    const plannerPrevBtn = document.getElementById("plannerPrevBtn");
+    const plannerNextBtn = document.getElementById("plannerNextBtn");
+    const plannerMonthBtn = document.getElementById("plannerMonthBtn");
+    const plannerDayBtn = document.getElementById("plannerDayBtn");
+    const plannerTodayBtn = document.getElementById("plannerTodayBtn");
     let datePicker;
     let startPicker;
     let endPicker;
+    let listDatePicker;
+    let plannerCalendar;
     let confirmActionModal;
     let infoModal;
     let confirmResolver = null;
+    let bookingFormCollapse;
+    let roomsCollapse;
+    let plannerMode = "month";
 
     function initModals() {
         const confirmEl = document.getElementById("confirmActionModal");
@@ -742,6 +1013,75 @@
                 confirmResolver = null;
             }
         });
+    }
+
+    function initCollapses() {
+        bookingFormCollapse = bootstrap.Collapse.getOrCreateInstance(bookingFormCollapseEl, { toggle: false });
+        roomsCollapse = bootstrap.Collapse.getOrCreateInstance(roomsCollapseEl, { toggle: false });
+    }
+
+    function initPlanner() {
+        const calendarEl = document.getElementById("plannerCalendar");
+        plannerCalendar = new FullCalendar.Calendar(calendarEl, {
+            locale: "ru",
+            initialView: "dayGridMonth",
+            nowIndicator: true,
+            allDaySlot: false,
+            height: "auto",
+            slotMinTime: "06:00:00",
+            slotMaxTime: "23:00:00",
+            slotDuration: "00:30:00",
+            expandRows: true,
+            headerToolbar: false,
+            eventClick: (info) => {
+                if (plannerMode === "month") {
+                    openDayView(info.event.startStr.slice(0, 10));
+                    return;
+                }
+                const bookingId = info.event.extendedProps.bookingId;
+                if (bookingId) startEdit(bookingId);
+            },
+            dateClick: (info) => {
+                openDayView(info.dateStr.slice(0, 10));
+            }
+        });
+        plannerCalendar.render();
+        updatePlannerHeader();
+    }
+
+    function updatePlannerHeader() {
+        const currentDate = plannerCalendar ? plannerCalendar.getDate() : new Date();
+        const monthLabel = currentDate.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+        const dayLabel = currentDate.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", weekday: "long" });
+        if (plannerMode === "month") {
+            plannerTitle.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+            plannerMonthBtn.classList.remove("btn-outline-secondary");
+            plannerMonthBtn.classList.add("btn-primary");
+            plannerDayBtn.classList.remove("btn-primary");
+            plannerDayBtn.classList.add("btn-outline-secondary");
+        } else {
+            plannerTitle.textContent = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+            plannerDayBtn.classList.remove("btn-outline-secondary");
+            plannerDayBtn.classList.add("btn-primary");
+            plannerMonthBtn.classList.remove("btn-primary");
+            plannerMonthBtn.classList.add("btn-outline-secondary");
+        }
+    }
+
+    function openDayView(isoDate) {
+        plannerMode = "day";
+        if (plannerCalendar) {
+            plannerCalendar.changeView("timeGridDay", isoDate);
+        }
+        updatePlannerHeader();
+    }
+
+    function openMonthView() {
+        plannerMode = "month";
+        if (plannerCalendar) {
+            plannerCalendar.changeView("dayGridMonth");
+        }
+        updatePlannerHeader();
     }
 
     function initPickers() {
@@ -772,6 +1112,14 @@
             minuteIncrement: 5,
             position: "auto center",
             disableMobile: true
+        });
+        listDatePicker = flatpickr(listDateFilter, {
+            dateFormat: "d.m.Y",
+            allowInput: true,
+            locale: "ru",
+            position: "auto center",
+            disableMobile: true,
+            onChange: () => renderBookings()
         });
     }
 
@@ -836,6 +1184,7 @@
 
     function renderBookings() {
         const q = (document.getElementById("filterInput").value || "").trim().toLowerCase();
+        const filterDateIso = normalizeDateToIso(listDateFilter.value);
         const list = document.getElementById("bookingList");
         const normalize = (value) => (value || "").toString().toLowerCase().trim();
         const startsWithWord = (value, query) => {
@@ -848,32 +1197,41 @@
                 if (!q) return true;
                 const fields = [b.booked_by, b.purpose, b.room_name, b.owner_username];
                 const byWordStart = fields.some((field) => startsWithWord(field, q));
+                const byDate = !filterDateIso || b.meeting_date === filterDateIso;
+                if (!byDate) return false;
                 if (byWordStart) return true;
                 // Для более длинных запросов оставляем fallback по вхождению.
                 if (q.length >= 2) {
                     return fields.some((field) => normalize(field).includes(q));
                 }
-                return false;
+                return q.length === 0;
             })
             .sort((a, b) => `${a.meeting_date} ${a.start_time}`.localeCompare(`${b.meeting_date} ${b.start_time}`));
-        if (!filtered.length) {
-            list.innerHTML = '<div class="empty-state">Пока нет броней по текущему фильтру.</div>';
-            return;
+        if (filterDateIso) {
+            activeDateChip.classList.remove("d-none");
+            activeDateLabel.textContent = formatIsoToDisplay(filterDateIso);
+        } else {
+            activeDateChip.classList.add("d-none");
         }
-        list.innerHTML = filtered.map((b) => `
-            <div class="booking-row ${(isSuperAdmin || b.owner_username === currentUser) ? "clickable" : ""}" ${(isSuperAdmin || b.owner_username === currentUser) ? `onclick="startEdit(${b.id})"` : ""}>
-                <div class="booking-person">
-                    <strong>${b.booked_by}</strong>
-                    <span class="booking-meta">${b.owner_username}</span>
-                </div>
-                <div><span class="room-badge">${b.room_name}</span></div>
-                <div><span class="date-pill">${formatDateRu(b.meeting_date)}</span></div>
-                <div class="purpose-box">
-                    <span class="purpose-title">${b.purpose}</span>
-                    <span class="purpose-time"><span class="time-pill">${b.start_time} - ${b.end_time}</span></span>
-                </div>
-            </div>
-        `).join("");
+        const plannerEmpty = document.getElementById("plannerEmpty");
+        if (plannerCalendar) {
+            plannerCalendar.removeAllEvents();
+            const events = filtered.map((b) => ({
+                title: `${b.purpose} · ${b.room_name}`,
+                start: `${b.meeting_date}T${b.start_time}`,
+                end: `${b.meeting_date}T${b.end_time}`,
+                extendedProps: { bookingId: b.id, owner: b.owner_username, bookedBy: b.booked_by }
+            }));
+            plannerCalendar.addEventSource(events);
+            if (plannerMode === "day") {
+                const target = filterDateIso || plannerCalendar.getDate().toISOString().slice(0, 10);
+                plannerCalendar.changeView("timeGridDay", target);
+            } else {
+                plannerCalendar.changeView("dayGridMonth");
+            }
+        }
+        plannerEmpty.classList.toggle("d-none", filtered.length > 0);
+        updatePlannerHeader();
     }
 
     function resetForm() {
@@ -1055,6 +1413,7 @@
     window.startEdit = (id) => {
         const booking = bookings.find((b) => b.id === id);
         if (!booking) return;
+        bookingFormCollapse.show();
         const canEdit = isSuperAdmin;
         editId = id;
         formTitle.textContent = canEdit ? "Редактирование брони" : "Удаление своей брони";
@@ -1108,6 +1467,7 @@
     bindMaskedInput(dateInput, applyDateMask);
     bindMaskedInput(startInput, applyTimeMask);
     bindMaskedInput(endInput, applyTimeMask);
+    bindMaskedInput(listDateFilter, applyDateMask);
     dateInput.addEventListener("blur", () => {
         const normalizedIso = normalizeDateToIso(dateInput.value);
         if (normalizedIso) {
@@ -1121,6 +1481,57 @@
     endInput.addEventListener("blur", () => {
         const normalized = normalizeTime(endInput.value);
         if (normalized) endInput.value = normalized;
+    });
+    listDateFilter.addEventListener("blur", () => {
+        const normalizedIso = normalizeDateToIso(listDateFilter.value);
+        if (normalizedIso) {
+            listDateFilter.value = formatIsoToDisplay(normalizedIso);
+        }
+        renderBookings();
+    });
+    todayFilterBtn.addEventListener("click", () => {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, "0");
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const yyyy = now.getFullYear();
+        listDateFilter.value = `${dd}.${mm}.${yyyy}`;
+        if (listDatePicker) listDatePicker.setDate(listDateFilter.value, true, "d.m.Y");
+        renderBookings();
+    });
+    clearDateFilterBtn.addEventListener("click", () => {
+        listDateFilter.value = "";
+        if (listDatePicker) listDatePicker.clear();
+        renderBookings();
+    });
+    plannerMonthBtn.addEventListener("click", () => {
+        openMonthView();
+        renderBookings();
+    });
+    plannerDayBtn.addEventListener("click", () => {
+        const target = normalizeDateToIso(listDateFilter.value) || new Date().toISOString().slice(0, 10);
+        openDayView(target);
+        renderBookings();
+    });
+    plannerPrevBtn.addEventListener("click", () => {
+        if (plannerCalendar) {
+            plannerCalendar.prev();
+            updatePlannerHeader();
+        }
+    });
+    plannerNextBtn.addEventListener("click", () => {
+        if (plannerCalendar) {
+            plannerCalendar.next();
+            updatePlannerHeader();
+        }
+    });
+    plannerTodayBtn.addEventListener("click", () => {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        if (plannerMode === "day") {
+            openDayView(todayIso);
+        } else if (plannerCalendar) {
+            plannerCalendar.gotoDate(todayIso);
+            updatePlannerHeader();
+        }
     });
     deleteBtn.addEventListener("click", async () => {
         if (!editId) return;
@@ -1182,7 +1593,9 @@
     async function initPage() {
         try {
             initModals();
+            initCollapses();
             initPickers();
+            initPlanner();
             await loadRooms();
             buildRoomDropdown();
             if (rooms.length) setSelectedRoom(rooms[0].id);
