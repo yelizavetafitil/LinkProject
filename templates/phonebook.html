@@ -16,6 +16,26 @@
             --muted-text: #667f9f;
             --border: #d8e2f0;
             --card-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+            --panel-bg: rgba(255, 255, 255, 0.88);
+            --panel-border: rgba(205, 220, 243, 0.88);
+            --sidebar-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 250, 255, 0.9) 100%);
+            --sidebar-head-bg: linear-gradient(180deg, rgba(249, 252, 255, 0.96) 0%, rgba(244, 249, 255, 0.92) 100%);
+            --nav-item-bg: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+            --nav-item-border: #d6e3f5;
+            --nav-item-hover-bg: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+            --nav-item-hover-border: #abc4e8;
+            --nav-item-active-bg: linear-gradient(180deg, #f6fbff 0%, #e8f2ff 100%);
+            --nav-item-active-shadow: 0 0 0 2px rgba(28, 79, 156, 0.13), 0 8px 16px rgba(24, 59, 112, 0.12);
+            --contacts-bg: #fff;
+            --contacts-border: #dee8f5;
+            --contact-row-hover: #f8fbff;
+            --contact-head-bg: #f0f6ff;
+            --contact-head-color: #3a5d8c;
+            --variant-switcher-bg: rgba(241, 247, 255, 0.9);
+            --variant-switcher-border: #d7e3f5;
+            --variant-btn-color: #3c5d89;
+            --variant-btn-active-bg: #fff;
+            --variant-btn-active-color: #174788;
         }
         body {
             background-color: var(--bg);
@@ -62,17 +82,128 @@
         .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
         .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
         .main-container { margin: 0 auto; padding: 26px 0 34px; }
+        .directory-layout {
+            display: grid;
+            grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+        .directory-sidebar {
+            position: sticky;
+            top: 82px;
+            max-height: calc(100vh - 110px);
+            overflow-y: auto;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+            padding: 14px 12px 12px;
+        }
+        .directory-sidebar::-webkit-scrollbar { width: 8px; }
+        .directory-sidebar::-webkit-scrollbar-thumb {
+            background: #c8d8ef;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .directory-sidebar::-webkit-scrollbar-thumb:hover { background: #b4c9e8; background-clip: content-box; }
+        .directory-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-head {
+            position: sticky;
+            top: -14px;
+            z-index: 2;
+            margin: -14px -12px 10px;
+            padding: 12px 14px 10px;
+            background: var(--sidebar-head-bg);
+            border-bottom: 1px solid #dee8f5;
+            border-top-left-radius: 14px;
+            border-top-right-radius: 14px;
+        }
+        .sidebar-title {
+            font-size: 13px;
+            color: #4f6f99;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin: 0;
+            font-weight: 600;
+        }
+        .sidebar-subtitle {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: #7a91b0;
+        }
+        .dept-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .dept-link {
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--nav-item-border);
+            border-radius: 11px;
+            background: var(--nav-item-bg);
+            color: #264b82;
+            font-size: 13px;
+            padding: 10px 11px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            box-shadow: 0 2px 7px rgba(32, 68, 120, 0.06);
+            transition: all 0.18s ease;
+        }
+        .dept-link:hover {
+            border-color: var(--nav-item-hover-border);
+            background: var(--nav-item-hover-bg);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(24, 59, 112, 0.11);
+        }
+        .dept-link.active {
+            border-color: var(--primary);
+            background: var(--nav-item-active-bg);
+            box-shadow: var(--nav-item-active-shadow);
+            color: #123f7f;
+        }
+        .dept-link-name {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            font-weight: 500;
+        }
+        .dept-link-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            border-radius: 999px;
+            padding: 1px 7px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #e2ecfb;
+            color: #1d4b8f;
+        }
+        .directory-main {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+            padding: 18px;
+        }
+        .toolbar-row {
+            display: block;
+            margin-bottom: 12px;
+        }
         .search-container {
-            max-width: 760px;
-            margin: 0 auto 22px;
+            margin: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            background: rgba(255, 255, 255, 0.9);
+            background: #fff;
             border: 1px solid var(--border);
             border-radius: 999px;
             padding: 0 16px 0 18px;
-            box-shadow: var(--card-shadow);
         }
         .search-container:focus-within {
             border-color: #94b4e4;
@@ -91,50 +222,73 @@
             color: var(--text);
         }
         .search-bar:focus { outline: none; }
-        .contacts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-        .contact-card {
-            background: rgba(255, 255, 255, 0.88);
-            border-radius: 14px;
-            border: 1px solid rgba(205, 220, 243, 0.88);
-            backdrop-filter: blur(3px);
-            box-shadow: var(--card-shadow);
-            padding: 16px;
-            transition: all 0.2s ease-in-out;
-        }
-        .contact-card:hover {
-            border-color: #98b8e5;
-            box-shadow: 0 12px 22px rgba(17, 46, 90, 0.14);
-            transform: translateY(-1px);
-        }
-        .card-header-row {
+        .directory-meta {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
             gap: 10px;
-            border-bottom: 1px solid #e7eef8;
-            padding-bottom: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
+            padding: 8px 0 10px;
+            border-bottom: 1px dashed #d8e4f4;
         }
-        .user-name { font-weight: 600; color: var(--text); display: block; }
-        .user-pos { color: var(--muted-text); font-size: 13px; }
-        .dept-badge {
-            display: inline-block;
-            background: #e9f0fb;
-            color: #0f3b79;
-            border: 1px solid #d2e0f5;
-            border-radius: 999px;
-            padding: 4px 10px;
+        .directory-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #23487f;
+        }
+        .directory-count {
+            color: #6380a7;
+            font-size: 13px;
+            margin: 0;
+        }
+        .contacts-list {
+            border: 1px solid var(--contacts-border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--contacts-bg);
+        }
+        .contact-row {
+            display: grid;
+            grid-template-columns: minmax(220px, 1.1fr) minmax(180px, 1fr) minmax(250px, 1fr);
+            gap: 12px;
+            align-items: center;
+            padding: 12px 14px;
+            border-bottom: 1px solid #edf3fb;
+        }
+        .contact-row:last-child { border-bottom: none; }
+        .contact-row:hover { background: var(--contact-row-hover); }
+        .contact-head {
+            background: var(--contact-head-bg);
+            color: var(--contact-head-color);
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
-        .phone-list { display: flex; flex-direction: column; gap: 8px; }
+        .contact-name {
+            margin: 0;
+            font-weight: 600;
+            color: #163968;
+        }
+        .contact-pos {
+            margin: 2px 0 0;
+            color: #627d9f;
+            font-size: 12px;
+        }
+        .contact-dept {
+            color: #2f537f;
+            font-size: 13px;
+        }
+        .contact-phones { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
         .phone-link {
             text-decoration: none;
             color: var(--text);
             font-weight: 500;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: color 0.2s;
         }
         .phone-link:hover { color: var(--primary); }
@@ -146,6 +300,432 @@
             box-shadow: var(--card-shadow);
             border-radius: 14px;
             color: #6f86a6;
+        }
+        body[data-variant="compact"] .directory-layout {
+            grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+            gap: 14px;
+        }
+        body[data-variant="compact"] .directory-main { padding: 14px; }
+        body[data-variant="compact"] .directory-sidebar { padding: 10px; }
+        body[data-variant="compact"] .sidebar-head {
+            margin: -10px -10px 8px;
+            padding: 10px 12px 8px;
+        }
+        body[data-variant="compact"] .dept-nav { gap: 6px; }
+        body[data-variant="compact"] .dept-link {
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+        body[data-variant="compact"] .contact-row {
+            padding: 9px 11px;
+            gap: 9px;
+        }
+        body[data-variant="compact"] .directory-meta {
+            margin-bottom: 6px;
+            padding: 4px 0 8px;
+            border-bottom-style: solid;
+        }
+        body[data-variant="compact"] .search-container { border-radius: 10px; }
+        body[data-variant="compact"] .variant-switcher { padding: 3px; }
+        body[data-variant="compact"] .variant-btn {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+        body[data-variant="compact"] .contact-name { font-size: 14px; }
+        body[data-variant="compact"] .contact-pos { font-size: 11px; }
+        body[data-variant="compact"] .contact-phones { gap: 4px; }
+        body[data-variant="showcase"] .directory-layout {
+            grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+            gap: 22px;
+        }
+        body[data-variant="showcase"] .directory-sidebar,
+        body[data-variant="showcase"] .directory-main {
+            box-shadow: 0 14px 30px rgba(20, 53, 102, 0.14);
+            border-width: 1px;
+        }
+        body[data-variant="showcase"] .sidebar-head {
+            background: linear-gradient(135deg, #f2f7ff 0%, #e8f1ff 100%);
+            border-bottom: 1px solid #d1e1f7;
+        }
+        body[data-variant="showcase"] .dept-link {
+            border-radius: 12px;
+            padding: 11px 12px;
+            border-left: 4px solid #c7dbf5;
+        }
+        body[data-variant="showcase"] .dept-link.active { border-left-color: var(--primary); }
+        body[data-variant="showcase"] .toolbar-row {
+            background: linear-gradient(140deg, rgba(241, 248, 255, 0.9) 0%, rgba(233, 243, 255, 0.92) 100%);
+            border: 1px solid #d3e2f6;
+            border-radius: 14px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+        body[data-variant="showcase"] .search-container {
+            background: rgba(255, 255, 255, 0.94);
+        }
+        body[data-variant="showcase"] .directory-meta {
+            background: rgba(244, 249, 255, 0.8);
+            border: 1px solid #d8e7f8;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+        body[data-variant="showcase"] .contacts-list {
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        body[data-variant="showcase"] .contact-head { display: none; }
+        body[data-variant="showcase"] .contact-item {
+            border: 1px solid #d6e5f8;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 10px 20px rgba(20, 52, 100, 0.1);
+            grid-template-columns: minmax(240px, 1.1fr) minmax(180px, 0.9fr) minmax(240px, 1fr);
+            padding: 14px 15px;
+            position: relative;
+        }
+        body[data-variant="showcase"] .contact-item::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 10px;
+            bottom: 10px;
+            width: 4px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, #82a9de 0%, #4a7fc8 100%);
+        }
+        body[data-variant="showcase"] .contact-item > div { padding-left: 8px; }
+        body[data-variant="showcase"] .contact-name { font-size: 15px; }
+        body[data-variant="showcase"] .contact-pos { font-size: 12px; }
+        body[data-variant="showcase"] .phone-link {
+            padding: 2px 0;
+            border-bottom: 1px dashed #e2ecf9;
+        }
+        body[data-variant="showcase"] .phone-link:last-child { border-bottom: none; }
+        body[data-variant="resources"] .directory-sidebar,
+        body[data-variant="resources"] .directory-main {
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 8px 20px rgba(17, 46, 90, 0.08);
+        }
+        body[data-variant="resources"] .sidebar-head {
+            background: transparent;
+            border-bottom: 1px solid #dfe8f5;
+        }
+        body[data-variant="resources"] .sidebar-title {
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 12px;
+            color: #5a7090;
+        }
+        body[data-variant="resources"] .dept-link {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            padding: 9px 10px;
+        }
+        body[data-variant="resources"] .toolbar-row {
+            margin-bottom: 14px;
+        }
+        body[data-variant="resources"] .search-container {
+            max-width: 620px;
+            box-shadow: 0 8px 20px rgba(17, 46, 90, 0.1);
+        }
+        body[data-variant="resources"] .directory-meta {
+            border-bottom: 1px solid #dfe8f5;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+        body[data-variant="resources"] .contacts-list {
+            border: none;
+            background: transparent;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        body[data-variant="resources"] .contact-head { display: none; }
+        body[data-variant="resources"] .contact-item {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            box-shadow: var(--card-shadow);
+            padding: 14px;
+            grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.9fr) minmax(220px, 1fr);
+        }
+        body[data-variant="resources"] .contact-item:hover {
+            border-color: #98b8e5;
+            box-shadow: 0 12px 22px rgba(17, 46, 90, 0.14);
+            transform: translateY(-1px);
+        }
+        body[data-variant="resources"] .contact-name {
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+        body[data-variant="resources"] .contact-pos { line-height: 1.35; }
+        body[data-variant="resources"] .contact-dept {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #5a7090;
+            font-weight: 700;
+        }
+        body[data-variant="resources"] .contact-phones {
+            background: #f8fbff;
+            border: 1px solid #e2ebf7;
+            border-radius: 10px;
+            padding: 8px 10px;
+            gap: 5px;
+        }
+        body[data-variant="magazine"] .directory-layout {
+            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+            gap: 24px;
+        }
+        body[data-variant="magazine"] .directory-sidebar {
+            background: linear-gradient(180deg, rgba(246, 251, 255, 0.96) 0%, rgba(237, 246, 255, 0.92) 100%);
+            border-color: #cddff5;
+            box-shadow: 0 14px 30px rgba(16, 48, 92, 0.15);
+        }
+        body[data-variant="magazine"] .sidebar-head {
+            background: linear-gradient(180deg, rgba(247, 252, 255, 0.98) 0%, rgba(240, 248, 255, 0.95) 100%);
+            border-bottom-color: #d4e5f8;
+        }
+        body[data-variant="magazine"] .sidebar-title,
+        body[data-variant="magazine"] .sidebar-subtitle {
+            color: #486b97;
+        }
+        body[data-variant="magazine"] .dept-link {
+            background: #ffffff;
+            border-color: #cfe1f7;
+            color: #2a4f84;
+            box-shadow: 0 4px 10px rgba(17, 47, 92, 0.08);
+        }
+        body[data-variant="magazine"] .dept-link:hover {
+            background: #f3f9ff;
+            border-color: #a9c8ea;
+            box-shadow: 0 10px 18px rgba(16, 48, 92, 0.14);
+        }
+        body[data-variant="magazine"] .dept-link.active {
+            background: #eaf3ff;
+            border-color: #7ca7df;
+            color: #153f7b;
+            box-shadow: 0 0 0 2px rgba(124, 167, 223, 0.24), 0 10px 18px rgba(16, 48, 92, 0.18);
+        }
+        body[data-variant="magazine"] .dept-link-count {
+            background: #dceafb;
+            color: #235291;
+        }
+        body[data-variant="magazine"] .directory-main {
+            background: linear-gradient(180deg, rgba(252, 254, 255, 0.95) 0%, rgba(245, 250, 255, 0.94) 100%);
+            box-shadow: 0 18px 34px rgba(20, 52, 99, 0.16);
+        }
+        body[data-variant="magazine"] .toolbar-row {
+            background: #fff;
+            border: 1px solid #d9e6f7;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+        body[data-variant="magazine"] .directory-meta {
+            border: none;
+            margin-bottom: 14px;
+            padding: 12px;
+            border-radius: 12px;
+            background: linear-gradient(115deg, rgba(35, 91, 167, 0.1) 0%, rgba(79, 141, 219, 0.06) 100%);
+        }
+        body[data-variant="magazine"] .contacts-list {
+            border: none;
+            background: transparent;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            position: relative;
+            padding-left: 16px;
+        }
+        body[data-variant="magazine"] .contacts-list::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: linear-gradient(180deg, #86aee3 0%, #5d89c8 100%);
+            border-radius: 999px;
+        }
+        body[data-variant="magazine"] .contact-head { display: none; }
+        body[data-variant="magazine"] .contact-item {
+            border: 1px solid #d7e5f8;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 9px 20px rgba(28, 67, 123, 0.1);
+            grid-template-columns: minmax(220px, 1fr) minmax(200px, 1fr) minmax(220px, 1fr);
+            position: relative;
+        }
+        body[data-variant="magazine"] .contact-item::before {
+            content: "";
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            left: -22px;
+            top: 20px;
+            border-radius: 50%;
+            background: #5f8fcd;
+            border: 2px solid #d9e9ff;
+            box-shadow: 0 0 0 4px rgba(126, 165, 219, 0.22);
+        }
+        body[data-variant="magazine"] .contact-dept {
+            padding: 6px 10px;
+            background: #eff6ff;
+            border: 1px solid #d5e5fb;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        body[data-variant="magazine"] .contact-phones {
+            background: #f9fcff;
+            border: 1px dashed #d4e3f7;
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+        body[data-variant="official"] .directory-layout {
+            grid-template-columns: minmax(270px, 310px) minmax(0, 1fr);
+            gap: 18px;
+        }
+        body[data-variant="official"] .directory-sidebar,
+        body[data-variant="official"] .directory-main {
+            background: #ffffff;
+            border: 1px solid #d4e1f3;
+            box-shadow: 0 4px 12px rgba(20, 48, 89, 0.08);
+            backdrop-filter: none;
+        }
+        body[data-variant="official"] .sidebar-head {
+            background: #f5f9ff;
+            border-bottom: 1px solid #dce7f7;
+        }
+        body[data-variant="official"] .dept-link {
+            border-radius: 8px;
+            box-shadow: none;
+            background: #fff;
+            border: 1px solid #d8e4f4;
+        }
+        body[data-variant="official"] .dept-link:hover {
+            background: #f6faff;
+            border-color: #a6c5ea;
+            transform: none;
+            box-shadow: none;
+        }
+        body[data-variant="official"] .dept-link.active {
+            background: #eef5ff;
+            border-color: #7eaadf;
+            box-shadow: inset 3px 0 0 #4f84c8;
+        }
+        body[data-variant="official"] .toolbar-row {
+            border-bottom: 1px solid #e2ebf8;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        body[data-variant="official"] .search-container,
+        body[data-variant="official"] .variant-switcher {
+            border-radius: 8px;
+            box-shadow: none;
+            background: #fff;
+        }
+        body[data-variant="official"] .directory-meta {
+            border-bottom-style: solid;
+            margin-bottom: 10px;
+        }
+        body[data-variant="official"] .contacts-list {
+            border-radius: 8px;
+            border: 1px solid #dbe7f8;
+        }
+        body[data-variant="official"] .contact-row {
+            border-bottom: 1px solid #e6eef9;
+        }
+        body[data-variant="official"] .contact-row:hover { background: #f8fbff; }
+        body[data-variant="official"] .contact-head {
+            background: #f2f7ff;
+            color: #486a96;
+        }
+        body[data-variant="grid"] .directory-main {
+            padding: 16px;
+        }
+        body[data-variant="grid"] .contacts-list {
+            border: none;
+            background: transparent;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 12px;
+        }
+        body[data-variant="grid"] .contact-head { display: none; }
+        body[data-variant="grid"] .contact-item {
+            grid-template-columns: 1fr;
+            align-items: flex-start;
+            border: 1px solid #d9e5f5;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 8px 16px rgba(17, 46, 90, 0.09);
+            gap: 8px;
+            padding: 12px;
+        }
+        body[data-variant="grid"] .contact-dept {
+            display: inline-flex;
+            padding: 3px 9px;
+            border-radius: 999px;
+            border: 1px solid #d4e2f6;
+            background: #eef5ff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        body[data-variant="grid"] .contact-phones {
+            width: 100%;
+            border-top: 1px dashed #dce8f8;
+            padding-top: 8px;
+        }
+        @media (max-width: 1200px) {
+            .contact-row { grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.8fr) minmax(180px, 0.9fr); }
+            .contact-row .contact-dept { display: none; }
+            .contact-head .head-dept { display: none; }
+            body[data-variant="showcase"] .contact-item { grid-template-columns: 1fr 1fr; }
+            body[data-variant="showcase"] .contact-dept { display: none; }
+            body[data-variant="resources"] .contact-item { grid-template-columns: 1fr 1fr; }
+            body[data-variant="resources"] .contact-dept { display: none; }
+            body[data-variant="magazine"] .contact-item { grid-template-columns: 1fr 1fr; }
+            body[data-variant="magazine"] .contact-dept { display: none; }
+            body[data-variant="official"] .contact-row { grid-template-columns: 1fr 1fr; }
+            body[data-variant="official"] .contact-dept,
+            body[data-variant="official"] .head-dept { display: none; }
+        }
+        @media (max-width: 991px) {
+            .directory-layout { grid-template-columns: 1fr; }
+            .directory-sidebar { position: static; max-height: none; }
+            .sidebar-head {
+                position: static;
+                margin: -14px -12px 12px;
+                border-top-left-radius: 14px;
+                border-top-right-radius: 14px;
+            }
+            .contact-row, .contact-head {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            .contact-head { display: none; }
+            .contact-row { padding: 12px; }
+            body[data-variant="showcase"] .contact-item { grid-template-columns: 1fr; }
+            body[data-variant="showcase"] .contact-item > div { padding-left: 2px; }
+            body[data-variant="showcase"] .toolbar-row { padding: 8px; }
+            body[data-variant="resources"] .contact-item { grid-template-columns: 1fr; }
+            body[data-variant="magazine"] .directory-layout { grid-template-columns: 1fr; gap: 14px; }
+            body[data-variant="magazine"] .contact-item { grid-template-columns: 1fr; }
+            body[data-variant="magazine"] .contacts-list { padding-left: 0; }
+            body[data-variant="magazine"] .contacts-list::before,
+            body[data-variant="magazine"] .contact-item::before { display: none; }
+            body[data-variant="official"] .contact-row { grid-template-columns: 1fr; }
+            body[data-variant="grid"] .contacts-list { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -162,49 +742,137 @@
 </nav>
 
 <div class="main-container container">
-    <div class="search-container">
-        <span class="search-icon-wrap"><i class="fa-solid fa-magnifying-glass"></i></span>
-        <input type="text" id="searchInput" class="search-bar" placeholder="Поиск по сотруднику, отделу или номеру...">
-    </div>
+    <div class="directory-layout">
+        <aside class="directory-sidebar">
+            <div class="sidebar-head">
+                <h6 class="sidebar-title">Навигация по разделам</h6>
+                <p class="sidebar-subtitle">Быстрый переход по структуре</p>
+            </div>
+            <div id="deptNav" class="dept-nav"></div>
+        </aside>
 
-    <div id="phoneTable" class="contacts-grid">
-        {% for c in contacts %}
-        <div class="contact-card" data-search="{{ (c.surname ~ ' ' ~ c.name ~ ' ' ~ c.pos ~ ' ' ~ c.dept ~ ' ' ~ c.work ~ ' ' ~ c.mobile ~ ' ' ~ c.home)|lower }}">
-            <div class="card-header-row">
-                <div>
-                    <span class="user-name">{{ c.surname }} {{ c.name }}</span>
-                    <span class="user-pos">{{ c.pos }}</span>
+        <section class="directory-main">
+            <div class="toolbar-row">
+                <div class="search-container">
+                    <span class="search-icon-wrap"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="text" id="searchInput" class="search-bar" placeholder="Поиск по сотруднику, отделу, должности или номеру...">
                 </div>
-                <i class="fa-solid fa-address-card text-secondary"></i>
             </div>
-            <div class="mb-2"><span class="dept-badge">{{ c.dept }}</span></div>
-            <div class="phone-list">
-                {% if c.work %}<a href="tel:{{ c.work }}" class="phone-link"><i class="fa-solid fa-briefcase"></i> {{ c.work }}</a>{% endif %}
-                {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="phone-link"><i class="fa-solid fa-mobile-screen-button"></i> {{ c.mobile }}</a>{% endif %}
-                {% if c.home %}<a href="tel:{{ c.home }}" class="phone-link home"><i class="fa-solid fa-house"></i> {{ c.home }}</a>{% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <div id="noResults" class="empty-state text-center py-5 d-none mt-3">
-        <i class="fa-solid fa-face-frown fa-2x mb-3"></i>
-        <p class="mb-0">Ничего не найдено по вашему запросу</p>
+            <div id="phoneTable" class="contacts-list">
+                <div class="contact-row contact-head">
+                    <div>Сотрудник</div>
+                    <div class="head-dept">Отдел</div>
+                    <div>Номера</div>
+                </div>
+                {% for c in contacts %}
+                <div
+                    class="contact-row contact-item"
+                    data-dept="{{ c.dept|default('', true) }}"
+                    data-group=""
+                    data-search="{{ (c.surname ~ ' ' ~ c.name ~ ' ' ~ c.pos ~ ' ' ~ c.dept ~ ' ' ~ c.work ~ ' ' ~ c.mobile ~ ' ' ~ c.home)|lower }}">
+                    <div>
+                        <p class="contact-name">{{ c.surname }} {{ c.name }}</p>
+                        <p class="contact-pos">{{ c.pos }}</p>
+                    </div>
+                    <div class="contact-dept">{{ c.dept }}</div>
+                    <div class="contact-phones">
+                        {% if c.work %}<a href="tel:{{ c.work }}" class="phone-link"><i class="fa-solid fa-briefcase"></i> {{ c.work }}</a>{% endif %}
+                        {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="phone-link"><i class="fa-solid fa-mobile-screen-button"></i> {{ c.mobile }}</a>{% endif %}
+                        {% if c.home %}<a href="tel:{{ c.home }}" class="phone-link home"><i class="fa-solid fa-house"></i> {{ c.home }}</a>{% endif %}
+                        {% if not c.work and not c.mobile and not c.home %}<span class="text-muted small">—</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div id="noResults" class="empty-state text-center py-5 d-none mt-3">
+                <i class="fa-solid fa-face-frown fa-2x mb-3"></i>
+                <p class="mb-0">Ничего не найдено по текущим фильтрам</p>
+            </div>
+        </section>
     </div>
 </div>
 
 <script>
-    const rows = Array.from(document.querySelectorAll("#phoneTable .contact-card"));
+    const rows = Array.from(document.querySelectorAll("#phoneTable .contact-item"));
     const noResults = document.getElementById("noResults");
+    const searchInput = document.getElementById("searchInput");
+    const deptNav = document.getElementById("deptNav");
+    let activeGroup = "all";
+
+    function normalizeText(value) {
+        return (value || "").toString().trim().toLowerCase();
+    }
+
+    function initGroups() {
+        for (const row of rows) {
+            const dept = normalizeText(row.dataset.dept);
+            let group = dept;
+            if (dept.includes("руковод")) group = "__management";
+            else if (dept.includes("сектор")) group = "__sectors";
+            row.dataset.group = group || "__other";
+        }
+    }
+
+    function buildNavigation() {
+        const groupsMap = new Map();
+        groupsMap.set("all", { name: "Общая", count: rows.length });
+        groupsMap.set("__management", { name: "Руководство", count: rows.filter((r) => r.dataset.group === "__management").length });
+        groupsMap.set("__sectors", { name: "Сектора", count: rows.filter((r) => r.dataset.group === "__sectors").length });
+
+        const deptCounts = new Map();
+        for (const row of rows) {
+            const deptRaw = (row.dataset.dept || "").trim();
+            if (!deptRaw) continue;
+            deptCounts.set(deptRaw, (deptCounts.get(deptRaw) || 0) + 1);
+        }
+        const sortedDepartments = Array.from(deptCounts.entries()).sort((a, b) => a[0].localeCompare(b[0], "ru"));
+        for (const [dept, count] of sortedDepartments) {
+            groupsMap.set(`dept:${dept}`, { name: dept, count });
+        }
+
+        const items = Array.from(groupsMap.entries()).filter(([, value]) => value.count > 0);
+        deptNav.innerHTML = items.map(([id, value]) => `
+            <button class="dept-link ${id === activeGroup ? "active" : ""}" data-group-id="${id}" type="button">
+                <span class="dept-link-name">${value.name}</span>
+                <span class="dept-link-count">${value.count}</span>
+            </button>`).join("");
+
+        deptNav.querySelectorAll(".dept-link").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                activeGroup = btn.dataset.groupId;
+                setActiveNavButton();
+                applyFilter(searchInput.value);
+            });
+        });
+    }
+
+    function setActiveNavButton() {
+        deptNav.querySelectorAll(".dept-link").forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.groupId === activeGroup);
+        });
+    }
 
     function applyFilter(value) {
-        const filter = value.trim().toLowerCase();
+        const filter = normalizeText(value);
         let hasResults = false;
+        let visibleCount = 0;
+
         for (const row of rows) {
-            const visible = (row.dataset.search || "").includes(filter);
+            const bySearch = (row.dataset.search || "").includes(filter);
+            let byGroup = true;
+            if (activeGroup === "__management" || activeGroup === "__sectors" || activeGroup === "__other") {
+                byGroup = row.dataset.group === activeGroup;
+            } else if (activeGroup.startsWith("dept:")) {
+                byGroup = (row.dataset.dept || "").trim() === activeGroup.slice(5);
+            }
+            const visible = bySearch && byGroup;
             row.classList.toggle("d-none", !visible);
             if (visible) hasResults = true;
+            if (visible) visibleCount += 1;
         }
+
         noResults.classList.toggle("d-none", hasResults);
     }
 
@@ -216,9 +884,20 @@
         };
     }
 
-    document.getElementById("searchInput").addEventListener("input", debounce((event) => {
+    searchInput.addEventListener("input", debounce((event) => {
         applyFilter(event.target.value);
     }, 120));
+
+    function setVariant(variantName) {
+        const variant = "showcase";
+        document.body.setAttribute("data-variant", variant);
+    }
+
+    initGroups();
+    buildNavigation();
+    setActiveNavButton();
+    setVariant("showcase");
+    applyFilter("");
 </script>
 </body>
 </html>
