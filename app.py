@@ -102,12 +102,37 @@ def init_db():
                 group_id INTEGER, username TEXT, 
                 PRIMARY KEY (group_id, username)
             )''')
+        # 5. Переговорки
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL
+            )''')
+
+        # 6. Брони переговорок
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_bookings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id INTEGER NOT NULL,
+                booked_by TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                meeting_date TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                owner_username TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(room_id) REFERENCES meeting_rooms(id)
+            )''')
         # Синхронизируем справочник разделов с уже существующими ресурсами
         existing_categories = conn.execute(
             "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
         ).fetchall()
         for row in existing_categories:
             conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (row['category'],))
+        default_rooms = ['Переговорка 1', 'Переговорка 2', 'Конференц-зал']
+        for room_name in default_rooms:
+            conn.execute('INSERT OR IGNORE INTO meeting_rooms (name) VALUES (?)', (room_name,))
         conn.commit()
 def get_user_ad_groups(conn, user_dn):
     search_filter = f"(member:1.2.840.113556.1.4.1941:={user_dn})"
@@ -178,10 +203,207 @@ def phonebook_page():
     return render_template('phonebook.html', is_admin=is_admin, user=session.get('username'), contacts=contacts)
 
 
+@app.route('/meeting-rooms')
+def meeting_rooms_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    is_admin = session.get('username') in MASTER_ADMINS
+    return render_template('meeting_rooms.html', is_admin=is_admin, user=session.get('username'))
+
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login_page'))
+
+
+@app.route('/api/meeting-rooms')
+def get_meeting_rooms():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('SELECT id, name FROM meeting_rooms ORDER BY name COLLATE NOCASE').fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-rooms', methods=['POST'])
+def create_meeting_room():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False, error='Только администратор может добавлять переговорки'), 403
+    data = request.json or {}
+    room_name = (data.get('name') or '').strip()
+    if not room_name:
+        return jsonify(success=False, error='Укажите название переговорки'), 400
+    conn = get_db_connection()
+    try:
+        exists = conn.execute('SELECT 1 FROM meeting_rooms WHERE name = ?', (room_name,)).fetchone()
+        if exists:
+            return jsonify(success=False, error='Такая переговорка уже существует'), 409
+        conn.execute('INSERT INTO meeting_rooms (name) VALUES (?)', (room_name,))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-rooms/<int:room_id>', methods=['DELETE'])
+def delete_meeting_room(room_id):
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False, error='Только администратор может удалять переговорки'), 403
+    conn = get_db_connection()
+    try:
+        has_bookings = conn.execute('SELECT 1 FROM meeting_bookings WHERE room_id = ? LIMIT 1', (room_id,)).fetchone()
+        if has_bookings:
+            return jsonify(success=False, error='Нельзя удалить переговорку: есть существующие брони'), 409
+        conn.execute('DELETE FROM meeting_rooms WHERE id = ?', (room_id,))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+def _meeting_has_conflict(conn, booking_payload, booking_id=None):
+    params = [
+        booking_payload['room_id'],
+        booking_payload['meeting_date'],
+        booking_payload['end_time'],
+        booking_payload['start_time']
+    ]
+    query = '''
+        SELECT 1
+        FROM meeting_bookings
+        WHERE room_id = ?
+          AND meeting_date = ?
+          AND NOT (? <= start_time OR ? >= end_time)
+    '''
+    if booking_id is not None:
+        query += ' AND id <> ?'
+        params.append(booking_id)
+    query += ' LIMIT 1'
+    return conn.execute(query, tuple(params)).fetchone() is not None
+
+
+@app.route('/api/meeting-bookings')
+def get_meeting_bookings():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.meeting_date, b.start_time, b.end_time, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            ORDER BY b.meeting_date ASC, b.start_time ASC
+        ''').fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-bookings', methods=['POST'])
+def create_meeting_booking():
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    data = request.json or {}
+    payload = {
+        'room_id': data.get('room_id'),
+        'booked_by': (data.get('booked_by') or '').strip(),
+        'purpose': (data.get('purpose') or '').strip(),
+        'meeting_date': (data.get('meeting_date') or '').strip(),
+        'start_time': (data.get('start_time') or '').strip(),
+        'end_time': (data.get('end_time') or '').strip(),
+    }
+    if not all([payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+                payload['start_time'], payload['end_time']]):
+        return jsonify(success=False, error='Заполните все поля бронирования'), 400
+    if payload['end_time'] <= payload['start_time']:
+        return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
+    conn = get_db_connection()
+    try:
+        room_exists = conn.execute('SELECT 1 FROM meeting_rooms WHERE id = ?', (payload['room_id'],)).fetchone()
+        if not room_exists:
+            return jsonify(success=False, error='Выбранная переговорка не найдена'), 404
+        if _meeting_has_conflict(conn, payload):
+            return jsonify(success=False, error='На выбранное время переговорка уже занята'), 409
+        conn.execute('''
+            INSERT INTO meeting_bookings (
+                room_id, booked_by, purpose, meeting_date, start_time, end_time, owner_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+            payload['start_time'], payload['end_time'], session.get('username')
+        ))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-bookings/<int:booking_id>', methods=['PUT'])
+def update_meeting_booking(booking_id):
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    data = request.json or {}
+    payload = {
+        'room_id': data.get('room_id'),
+        'booked_by': (data.get('booked_by') or '').strip(),
+        'purpose': (data.get('purpose') or '').strip(),
+        'meeting_date': (data.get('meeting_date') or '').strip(),
+        'start_time': (data.get('start_time') or '').strip(),
+        'end_time': (data.get('end_time') or '').strip(),
+    }
+    if not all([payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+                payload['start_time'], payload['end_time']]):
+        return jsonify(success=False, error='Заполните все поля бронирования'), 400
+    if payload['end_time'] <= payload['start_time']:
+        return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
+    conn = get_db_connection()
+    try:
+        booking = conn.execute('SELECT owner_username FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
+        if not booking:
+            return jsonify(success=False, error='Бронь не найдена'), 404
+        current_user = session.get('username')
+        if current_user != 'oc1':
+            return jsonify(success=False, error='Редактирование доступно только администратору oc1'), 403
+        if _meeting_has_conflict(conn, payload, booking_id=booking_id):
+            return jsonify(success=False, error='На выбранное время переговорка уже занята'), 409
+        conn.execute('''
+            UPDATE meeting_bookings
+            SET room_id = ?, booked_by = ?, purpose = ?, meeting_date = ?, start_time = ?, end_time = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (
+            payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+            payload['start_time'], payload['end_time'], booking_id
+        ))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-bookings/<int:booking_id>', methods=['DELETE'])
+def delete_meeting_booking(booking_id):
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    conn = get_db_connection()
+    try:
+        booking = conn.execute('SELECT owner_username FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
+        if not booking:
+            return jsonify(success=False, error='Бронь не найдена'), 404
+        current_user = session.get('username')
+        if current_user != 'oc1' and booking['owner_username'] != current_user:
+            return jsonify(success=False, error='Можно удалять только свои брони'), 403
+        conn.execute('DELETE FROM meeting_bookings WHERE id = ?', (booking_id,))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
 
 
 @app.route('/assets/logo')

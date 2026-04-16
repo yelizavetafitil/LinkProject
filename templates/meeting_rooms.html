@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бронирование переговорок | РУП Белнипиэнергопром</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1c4f9c;
+            --primary-soft: #2a65c0;
+            --bg: #edf3fb;
+            --text: #1c2f4b;
+            --muted-text: #667f9f;
+            --border: #d8e2f0;
+            --card-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+        }
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.18) 0%, rgba(130, 230, 255, 0) 48%),
+                linear-gradient(180deg, rgba(8, 26, 72, 0.56) 0%, rgba(8, 26, 72, 0.66) 100%),
+                url("{{ url_for('project_asset', filename='back4.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: "Inter", sans-serif;
+            color: var(--text);
+        }
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(20, 42, 75, 0.06);
+        }
+        .logo img { height: 40px; width: auto; display: block; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .topbar-user { font-size: 15px; color: #4d678b; margin-right: 4px; }
+        .topbar-btn {
+            height: 40px;
+            border-radius: 10px !important;
+            padding: 0 16px !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .btn-outline-secondary {
+            color: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline-secondary:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: var(--primary-soft); border-color: var(--primary-soft); }
+        .btn-primary:focus, .btn-outline-secondary:focus, .btn-light:focus, .btn-outline-danger:focus {
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.18) !important;
+        }
+        .main-container { margin: 0 auto; padding: 26px 0 34px; }
+        .hero-panel,
+        .panel {
+            background: rgba(255, 255, 255, 0.84);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+        }
+        .hero-panel { padding: 16px 18px; margin-bottom: 14px; }
+        .hero-title { margin: 0; font-size: 20px; font-weight: 700; color: #1e4f95; }
+        .hero-subtitle { margin: 6px 0 0; color: #5e7798; font-size: 14px; }
+        .panel { padding: 16px; }
+        .panel-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dfe8f5;
+            flex-wrap: wrap;
+        }
+        .section-title { margin: 0; font-size: 16px; font-weight: 700; color: #2a4f86; }
+        .section-subtitle { margin: 4px 0 0; color: #6d84a2; font-size: 13px; }
+        .booking-layout {
+            display: grid;
+            grid-template-columns: minmax(360px, 1fr) minmax(300px, 340px);
+            gap: 16px;
+            align-items: start;
+        }
+        .booking-form {
+            display: grid;
+            gap: 12px;
+        }
+        .field-block {
+            display: grid;
+            gap: 6px;
+        }
+        .field-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #65809f;
+        }
+        .field-hint {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: #6b84a2;
+        }
+        .room-dropdown { position: relative; }
+        .room-dropdown-btn {
+            width: 100%;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #334155;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .room-dropdown-btn span {
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            text-align: left;
+            line-height: 1.3;
+        }
+        .room-dropdown-btn:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .room-dropdown-menu {
+            display: none;
+            position: absolute;
+            z-index: 30;
+            width: 100%;
+            margin-top: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+            padding: 10px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .room-dropdown.open .room-dropdown-menu { display: block; }
+        .room-search-wrap {
+            --room-search-h: 36px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 10px;
+            margin-bottom: 8px;
+            background: #fff;
+            min-height: var(--room-search-h);
+        }
+        .room-search-wrap:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .room-search-icon {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8aa1bf;
+            line-height: 0;
+        }
+        .room-search-icon svg {
+            width: 16px;
+            height: 16px;
+            display: block;
+        }
+        .room-search {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: 100%;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            margin: 0;
+            padding: 0;
+            height: var(--room-search-h);
+            line-height: var(--room-search-h);
+            font-size: 13px;
+        }
+        .room-search:focus { outline: none; }
+        .room-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 8px;
+            border-radius: 0;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .room-option + .room-option { border-top: 1px solid #eef2f7; }
+        .room-option:hover { background: #f8fafc; }
+        .room-option.selected {
+            background: #e9f0fb;
+            color: #0f3b79;
+            border-color: transparent;
+        }
+        .room-option-empty {
+            padding: 10px 8px;
+            font-size: 13px;
+            color: #7c8fa8;
+        }
+        .room-check-icon { opacity: 0; color: var(--primary); }
+        .room-option.selected .room-check-icon { opacity: 1; }
+        .time-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .hint-text {
+            margin: 0 0 10px;
+            color: #6b84a2;
+            font-size: 12px;
+        }
+        .helper-box {
+            border: 1px solid #d9e5f6;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #fafcff 0%, #f4f8ff 100%);
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+        }
+        .helper-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #315788;
+        }
+        .helper-list {
+            margin: 0;
+            padding-left: 18px;
+            color: #607998;
+            font-size: 13px;
+        }
+        .room-panel {
+            height: fit-content;
+            position: static;
+            max-height: none;
+            overflow: visible;
+        }
+        .room-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .room-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            max-height: 240px;
+            overflow-y: auto;
+            align-content: flex-start;
+            padding-right: 4px;
+        }
+        .room-list::-webkit-scrollbar { width: 8px; }
+        .room-list::-webkit-scrollbar-thumb {
+            background: #c8d8ef;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .room-list::-webkit-scrollbar-thumb:hover { background: #b4c9e8; background-clip: content-box; }
+        .room-list::-webkit-scrollbar-track { background: transparent; }
+        .room-chip {
+            border: 1px solid #d6e3f7;
+            background: #fff;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: #2d4f7d;
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(17, 46, 90, 0.08);
+        }
+        .room-chip button {
+            border: none;
+            background: transparent;
+            color: #5c7394;
+            padding: 0;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .schedule-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        .schedule-search {
+            width: 100%;
+            margin-left: 0;
+            border: none;
+            background: transparent;
+            padding: 0;
+            font-size: 14px;
+            color: var(--text);
+            box-shadow: none;
+            min-width: 0;
+        }
+        .schedule-search:focus {
+            outline: none;
+            box-shadow: none;
+        }
+        .schedule-search-wrap {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            padding: 8px 14px 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 6px 14px rgba(17, 46, 90, 0.1);
+        }
+        .schedule-search-wrap:focus-within {
+            border-color: #94b4e4;
+            box-shadow: 0 0 0 3px rgba(98, 141, 209, 0.14), 0 10px 20px rgba(17, 46, 90, 0.12);
+        }
+        .schedule-search-icon {
+            color: #8aa1bf;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+            flex-shrink: 0;
+        }
+        .schedule-search-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+        .table-wrap {
+            background: transparent;
+            box-shadow: none;
+            border: none;
+        }
+        .booking-head, .booking-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            align-items: center;
+            padding: 10px 12px;
+        }
+        .booking-head { display: none; }
+        #bookingList {
+            display: grid;
+            gap: 10px;
+        }
+        .booking-row {
+            border: 1px solid #d7e5f8;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 9px 20px rgba(28, 67, 123, 0.1);
+            font-size: 13px;
+            color: #1f3f68;
+            min-height: 56px;
+            position: relative;
+            padding: 14px 14px 14px 16px;
+        }
+        .booking-row.clickable { cursor: pointer; }
+        .booking-row:hover { background: #f8fbff; }
+        .booking-row::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 10px;
+            bottom: 10px;
+            width: 4px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, #82a9de 0%, #4a7fc8 100%);
+            transition: transform 0.18s ease;
+        }
+        .booking-row:hover::before { transform: scaleY(1.04); }
+        .booking-person {
+            display: grid;
+            gap: 3px;
+        }
+        .booking-person strong {
+            font-size: 14px;
+            color: #1f426f;
+        }
+        .booking-meta {
+            color: #6b84a2;
+            font-size: 12px;
+        }
+        .room-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            border: 1px solid #d4e2f6;
+            background: #eef5ff;
+            color: #254f89;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+        }
+        .purpose-box {
+            display: grid;
+            gap: 4px;
+        }
+        .purpose-title {
+            font-size: 13px;
+            color: #1f426f;
+            font-weight: 600;
+        }
+        .purpose-time {
+            font-size: 12px;
+            color: #6b84a2;
+        }
+        .date-pill, .time-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            border: 1px solid #d7e4f7;
+            background: #f4f8ff;
+            color: #2f5688;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+        }
+        .time-pill {
+            border-style: dashed;
+            background: #f8fbff;
+        }
+        .btn-outline-danger {
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-sm {
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+        }
+        .modal-body { padding: 24px; }
+        #submitBtn {
+            font-size: 15px;
+            padding: 8px 16px;
+        }
+        .empty-state { color: #6c84a4; font-size: 13px; padding: 16px; }
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .flatpickr-calendar {
+            border: 1px solid #d8e4f5;
+            border-radius: 10px;
+            box-shadow: 0 14px 28px rgba(15, 38, 75, 0.2);
+            font-family: "Inter", sans-serif;
+        }
+        .flatpickr-day.selected,
+        .flatpickr-day.startRange,
+        .flatpickr-day.endRange {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .flatpickr-day.today {
+            border-color: #7ea8dd;
+        }
+        .flatpickr-time .numInputWrapper span.arrowUp:after {
+            border-bottom-color: var(--primary);
+        }
+        .flatpickr-time .numInputWrapper span.arrowDown:after {
+            border-top-color: var(--primary);
+        }
+        @media (max-width: 1100px) {
+            .booking-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 991px) {
+            .booking-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
+                align-items: flex-start;
+            }
+            .schedule-toolbar,
+            .panel-header,
+            .room-toolbar,
+            .form-actions {
+                align-items: stretch;
+            }
+            .schedule-search {
+                width: 100%;
+                margin-left: 0;
+            }
+            .time-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип компании"></a>
+        <div class="topbar-actions">
+            <span class="topbar-user fw-medium text-muted">{{ user }}</span>
+            <a href="/" class="btn btn-outline-secondary btn-sm topbar-btn">К ресурсам</a>
+            <a href="/logout" class="btn btn-light btn-sm topbar-btn">Выход</a>
+        </div>
+    </div>
+</nav>
+
+<div class="main-container container">
+    <section class="hero-panel">
+        <h1 class="hero-title">Бронирование переговорок</h1>
+        <p class="hero-subtitle">Единый сервис для бронирования встреч в переговорных комнатах.</p>
+    </section>
+
+    <div class="booking-layout">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 id="formTitle" class="section-title">Новая бронь</h2>
+                    <p class="section-subtitle">Заполните основные данные встречи и выберите переговорку.</p>
+                </div>
+            </div>
+            <form id="bookingForm" class="booking-form">
+                <div class="field-block">
+                    <label class="field-label" for="personInput">Кто бронирует</label>
+                    <input id="personInput" class="form-control" placeholder="ФИО или подразделение" required>
+                </div>
+                <div class="field-block">
+                    <label class="field-label" for="purposeInput">Тема встречи</label>
+                    <input id="purposeInput" class="form-control" placeholder="Например: совещание по проекту" required>
+                </div>
+                <div class="field-block">
+                    <label class="field-label" for="roomSelect">Переговорка</label>
+                    <div class="room-dropdown" id="roomDropdown">
+                        <button class="room-dropdown-btn" type="button" id="roomDropdownBtn">
+                            <span id="roomDropdownLabel">Выберите переговорку</span>
+                            <span aria-hidden="true">▾</span>
+                        </button>
+                        <div class="room-dropdown-menu" id="roomDropdownMenu"></div>
+                    </div>
+                    <p class="field-hint">Начните печатать название переговорки в выпадающем списке.</p>
+                    <input type="hidden" id="roomSelect" required>
+                </div>
+                <div class="field-block">
+                    <label class="field-label" for="dateInput">Дата</label>
+                    <input id="dateInput" type="text" class="form-control" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" required>
+                    <p class="field-hint">Можно выбрать в календаре или ввести вручную: ДД.ММ.ГГГГ</p>
+                </div>
+                <div class="time-grid">
+                    <div class="field-block">
+                        <label class="field-label" for="startInput">Начало</label>
+                        <input id="startInput" type="text" class="form-control" placeholder="ЧЧ:ММ" inputmode="numeric" required>
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label" for="endInput">Окончание</label>
+                        <input id="endInput" type="text" class="form-control" placeholder="ЧЧ:ММ" inputmode="numeric" required>
+                    </div>
+                </div>
+                <p class="field-hint">Время можно выбрать из списка или ввести с клавиатуры в формате ЧЧ:ММ</p>
+                <div class="form-actions">
+                    <button id="submitBtn" class="btn btn-primary btn-sm">Сохранить бронь</button>
+                    <button id="deleteBtn" type="button" class="btn btn-outline-danger btn-sm d-none">Удалить бронь</button>
+                    <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Отменить редактирование</button>
+                </div>
+            </form>
+            <div class="helper-box mt-3">
+                <p class="helper-title">Как это работает</p>
+                <ul class="helper-list">
+                    <li>Бронь сразу становится видна всем пользователям.</li>
+                    <li>Нельзя занять одну переговорку на пересекающееся время.</li>
+                    <li>Удалять можно только свои брони, редактирование недоступно. Администратор может редактировать и удалять любые брони.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="panel room-panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="section-title">Переговорки</h2>
+                    <p class="section-subtitle">Список доступных комнат.</p>
+                </div>
+                {% if is_admin %}
+                <div class="room-toolbar">
+                    <input id="roomNameInput" class="form-control form-control-sm" placeholder="Название переговорки">
+                    <button id="addRoomBtn" class="btn btn-outline-secondary btn-sm">Добавить</button>
+                </div>
+                {% endif %}
+            </div>
+            <div id="roomList" class="room-list"></div>
+        </section>
+    </div>
+
+    <section class="panel mt-3">
+        <div class="panel-header">
+            <div>
+                <h2 class="section-title mb-0">График броней</h2>
+                <p class="section-subtitle">Все будущие и текущие брони в одном списке.</p>
+            </div>
+            <div class="schedule-toolbar">
+                <div class="schedule-search-wrap">
+                    <span class="schedule-search-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                        </svg>
+                    </span>
+                    <input id="filterInput" class="schedule-search" placeholder="Поиск: человек, тема встречи, переговорка">
+                </div>
+            </div>
+        </div>
+        <p class="hint-text">Нажмите на строку брони, чтобы отредактировать или удалить ее.</p>
+        <div class="table-wrap">
+            <div id="bookingList"></div>
+        </div>
+    </section>
+</div>
+
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="confirmActionTitle">Подтверждение действия</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmActionText" class="mb-0 text-secondary">Вы уверены?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmActionOk">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="infoModalTitle">Сообщение</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="infoModalText" class="mb-0 text-secondary">Операция выполнена.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Понятно</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const isAdmin = {{ 'true' if is_admin else 'false' }};
+    const currentUser = "{{ user }}";
+    const isSuperAdmin = currentUser === "oc1";
+    let rooms = [];
+    let bookings = [];
+    let editId = null;
+    const formTitle = document.getElementById("formTitle");
+    const submitBtn = document.getElementById("submitBtn");
+    const deleteBtn = document.getElementById("deleteBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const personInput = document.getElementById("personInput");
+    const purposeInput = document.getElementById("purposeInput");
+    const dateInput = document.getElementById("dateInput");
+    const startInput = document.getElementById("startInput");
+    const endInput = document.getElementById("endInput");
+    let datePicker;
+    let startPicker;
+    let endPicker;
+    let confirmActionModal;
+    let infoModal;
+    let confirmResolver = null;
+
+    function initModals() {
+        const confirmEl = document.getElementById("confirmActionModal");
+        const confirmOk = document.getElementById("confirmActionOk");
+        const infoEl = document.getElementById("infoModal");
+        confirmActionModal = new bootstrap.Modal(confirmEl);
+        infoModal = new bootstrap.Modal(infoEl);
+        confirmOk.addEventListener("click", () => {
+            if (confirmResolver) {
+                confirmResolver(true);
+                confirmResolver = null;
+            }
+            confirmActionModal.hide();
+        });
+        confirmEl.addEventListener("hidden.bs.modal", () => {
+            if (confirmResolver) {
+                confirmResolver(false);
+                confirmResolver = null;
+            }
+        });
+    }
+
+    function initPickers() {
+        flatpickr.localize(flatpickr.l10ns.ru);
+        datePicker = flatpickr(dateInput, {
+            dateFormat: "d.m.Y",
+            allowInput: true,
+            locale: "ru",
+            position: "auto center",
+            disableMobile: true
+        });
+        startPicker = flatpickr(startInput, {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            allowInput: true,
+            time_24hr: true,
+            minuteIncrement: 5,
+            position: "auto center",
+            disableMobile: true
+        });
+        endPicker = flatpickr(endInput, {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            allowInput: true,
+            time_24hr: true,
+            minuteIncrement: 5,
+            position: "auto center",
+            disableMobile: true
+        });
+    }
+
+    function showInfo(message, title = "Сообщение") {
+        document.getElementById("infoModalTitle").textContent = title;
+        document.getElementById("infoModalText").textContent = message;
+        infoModal.show();
+    }
+
+    function showConfirm(message, title = "Подтверждение действия", okText = "Подтвердить") {
+        document.getElementById("confirmActionTitle").textContent = title;
+        document.getElementById("confirmActionText").textContent = message;
+        document.getElementById("confirmActionOk").textContent = okText;
+        confirmActionModal.show();
+        return new Promise((resolve) => { confirmResolver = resolve; });
+    }
+
+    function setFormEditable(isEditable) {
+        personInput.readOnly = !isEditable;
+        purposeInput.readOnly = !isEditable;
+        dateInput.readOnly = !isEditable;
+        startInput.readOnly = !isEditable;
+        endInput.readOnly = !isEditable;
+        document.getElementById("roomDropdownBtn").disabled = !isEditable;
+        submitBtn.classList.toggle("d-none", !isEditable);
+    }
+
+    async function requestJson(url, options = {}) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || "Ошибка запроса");
+        }
+        return data;
+    }
+
+    async function loadRooms() {
+        rooms = await requestJson("/api/meeting-rooms");
+        populateRoomSelect();
+        renderRooms();
+    }
+
+    async function loadBookings() {
+        bookings = await requestJson("/api/meeting-bookings");
+        renderBookings();
+    }
+
+    function populateRoomSelect() {
+        const select = document.getElementById("roomSelect");
+        select.innerHTML = rooms.map((room) => `<option value="${room.id}">${room.name}</option>`).join("");
+    }
+
+    function renderRooms() {
+        const wrap = document.getElementById("roomList");
+        wrap.innerHTML = rooms.map((room) => `
+            <span class="room-chip">
+                ${room.name}
+                ${isAdmin ? `<button type="button" onclick="removeRoom(${room.id})">&times;</button>` : ""}
+            </span>
+        `).join("");
+    }
+
+    function renderBookings() {
+        const q = (document.getElementById("filterInput").value || "").trim().toLowerCase();
+        const list = document.getElementById("bookingList");
+        const normalize = (value) => (value || "").toString().toLowerCase().trim();
+        const startsWithWord = (value, query) => {
+            const source = normalize(value);
+            if (!source || !query) return false;
+            return source.split(/[\s,.;:|/-]+/).some((token) => token.startsWith(query));
+        };
+        const filtered = bookings
+            .filter((b) => {
+                if (!q) return true;
+                const fields = [b.booked_by, b.purpose, b.room_name, b.owner_username];
+                const byWordStart = fields.some((field) => startsWithWord(field, q));
+                if (byWordStart) return true;
+                // Для более длинных запросов оставляем fallback по вхождению.
+                if (q.length >= 2) {
+                    return fields.some((field) => normalize(field).includes(q));
+                }
+                return false;
+            })
+            .sort((a, b) => `${a.meeting_date} ${a.start_time}`.localeCompare(`${b.meeting_date} ${b.start_time}`));
+        if (!filtered.length) {
+            list.innerHTML = '<div class="empty-state">Пока нет броней по текущему фильтру.</div>';
+            return;
+        }
+        list.innerHTML = filtered.map((b) => `
+            <div class="booking-row ${(isSuperAdmin || b.owner_username === currentUser) ? "clickable" : ""}" ${(isSuperAdmin || b.owner_username === currentUser) ? `onclick="startEdit(${b.id})"` : ""}>
+                <div class="booking-person">
+                    <strong>${b.booked_by}</strong>
+                    <span class="booking-meta">${b.owner_username}</span>
+                </div>
+                <div><span class="room-badge">${b.room_name}</span></div>
+                <div><span class="date-pill">${formatDateRu(b.meeting_date)}</span></div>
+                <div class="purpose-box">
+                    <span class="purpose-title">${b.purpose}</span>
+                    <span class="purpose-time"><span class="time-pill">${b.start_time} - ${b.end_time}</span></span>
+                </div>
+            </div>
+        `).join("");
+    }
+
+    function resetForm() {
+        editId = null;
+        document.getElementById("bookingForm").reset();
+        if (datePicker) datePicker.clear();
+        if (startPicker) startPicker.clear();
+        if (endPicker) endPicker.clear();
+        setSelectedRoom(rooms.length ? rooms[0].id : "");
+        formTitle.textContent = "Новая бронь";
+        submitBtn.textContent = "Сохранить бронь";
+        deleteBtn.classList.add("d-none");
+        cancelEditBtn.classList.add("d-none");
+        setFormEditable(true);
+    }
+
+    function formatDateRu(isoDate) {
+        if (!isoDate) return "";
+        const parts = isoDate.split("-");
+        if (parts.length !== 3) return isoDate;
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    function buildRoomDropdown() {
+        const menu = document.getElementById("roomDropdownMenu");
+        menu.innerHTML = `
+            <div class="room-search-wrap">
+                <span class="room-search-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                    </svg>
+                </span>
+                <input type="text" class="room-search" id="roomSearch" placeholder="Введите название переговорки...">
+            </div>
+            ${rooms.map((room) => `
+                <div class="room-option" data-room-id="${room.id}" data-room-name="${room.name}">
+                    <span>${room.name}</span>
+                    <span class="room-check-icon">✓</span>
+                </div>
+            `).join("")}
+        `;
+        menu.querySelectorAll(".room-option").forEach((opt) => {
+            opt.addEventListener("click", () => {
+                setSelectedRoom(opt.dataset.roomId);
+                document.getElementById("roomDropdown").classList.remove("open");
+            });
+        });
+        const searchInput = document.getElementById("roomSearch");
+        if (searchInput) {
+            searchInput.addEventListener("input", (event) => {
+                const q = (event.target.value || "").trim().toLowerCase();
+                let visibleCount = 0;
+                menu.querySelectorAll(".room-option").forEach((opt) => {
+                    const visible = (opt.dataset.roomName || "").toLowerCase().includes(q);
+                    opt.style.display = visible ? "flex" : "none";
+                    if (visible) visibleCount += 1;
+                });
+                const emptyId = "roomSearchEmptyState";
+                let emptyNode = document.getElementById(emptyId);
+                if (!visibleCount) {
+                    if (!emptyNode) {
+                        emptyNode = document.createElement("div");
+                        emptyNode.id = emptyId;
+                        emptyNode.className = "room-option-empty";
+                        emptyNode.textContent = "Ничего не найдено по запросу.";
+                        menu.appendChild(emptyNode);
+                    }
+                } else if (emptyNode) {
+                    emptyNode.remove();
+                }
+            });
+        }
+    }
+
+    function setSelectedRoom(roomId) {
+        const normalized = String(roomId || "");
+        const hidden = document.getElementById("roomSelect");
+        const label = document.getElementById("roomDropdownLabel");
+        hidden.value = normalized;
+        let selectedName = "Выберите переговорку";
+        document.querySelectorAll("#roomDropdownMenu .room-option").forEach((opt) => {
+            const selected = opt.dataset.roomId === normalized;
+            opt.classList.toggle("selected", selected);
+            if (selected) selectedName = opt.dataset.roomName;
+        });
+        label.textContent = selectedName;
+    }
+
+    function getFormPayload() {
+        const normalizedDate = normalizeDateToIso(dateInput.value);
+        const normalizedStart = normalizeTime(startInput.value);
+        const normalizedEnd = normalizeTime(endInput.value);
+        return {
+            room_id: Number(document.getElementById("roomSelect").value),
+            booked_by: document.getElementById("personInput").value.trim(),
+            purpose: document.getElementById("purposeInput").value.trim(),
+            meeting_date: normalizedDate,
+            start_time: normalizedStart,
+            end_time: normalizedEnd
+        };
+    }
+
+    function normalizeDateToIso(value) {
+        const raw = (value || "").trim();
+        if (!raw) return "";
+        const dotMatch = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (dotMatch) {
+            const [, dd, mm, yyyy] = dotMatch;
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) return raw;
+        return "";
+    }
+
+    function formatIsoToDisplay(isoDate) {
+        const raw = (isoDate || "").trim();
+        const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return raw;
+        return `${m[3]}.${m[2]}.${m[1]}`;
+    }
+
+    function normalizeTime(value) {
+        const raw = (value || "").trim();
+        if (!raw) return "";
+        const m = raw.match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return "";
+        const hh = m[1].padStart(2, "0");
+        const mm = m[2];
+        return `${hh}:${mm}`;
+    }
+
+    function applyDateMask(value) {
+        const digits = (value || "").replace(/\D/g, "").slice(0, 8);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+        return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+    }
+
+    function applyTimeMask(value) {
+        const digits = (value || "").replace(/\D/g, "").slice(0, 4);
+        if (digits.length <= 2) return digits;
+        return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    }
+
+    function bindMaskedInput(input, maskFn) {
+        input.addEventListener("input", () => {
+            const caretPos = input.selectionStart || input.value.length;
+            input.value = maskFn(input.value);
+            const newPos = Math.min(caretPos + 1, input.value.length);
+            input.setSelectionRange(newPos, newPos);
+        });
+    }
+
+    window.removeRoom = async (roomId) => {
+        if (!isAdmin) return;
+        const confirmed = await showConfirm("Удалить переговорку?", "Подтверждение удаления", "Удалить");
+        if (!confirmed) return;
+        try {
+            await requestJson(`/api/meeting-rooms/${roomId}`, { method: "DELETE" });
+            await loadRooms();
+        } catch (error) {
+            showInfo(error.message, "Ошибка");
+        }
+    };
+
+    window.removeBooking = async (id) => {
+        const confirmed = await showConfirm("Удалить выбранную бронь?", "Подтверждение удаления", "Удалить");
+        if (!confirmed) return;
+        try {
+            await requestJson(`/api/meeting-bookings/${id}`, { method: "DELETE" });
+            await loadBookings();
+        } catch (error) {
+            showInfo(error.message, "Ошибка");
+        }
+    };
+
+    window.startEdit = (id) => {
+        const booking = bookings.find((b) => b.id === id);
+        if (!booking) return;
+        const canEdit = isSuperAdmin;
+        editId = id;
+        formTitle.textContent = canEdit ? "Редактирование брони" : "Удаление своей брони";
+        submitBtn.textContent = "Сохранить изменения";
+        deleteBtn.classList.remove("d-none");
+        cancelEditBtn.classList.remove("d-none");
+        setFormEditable(canEdit);
+        document.getElementById("personInput").value = booking.booked_by;
+        document.getElementById("purposeInput").value = booking.purpose;
+        setSelectedRoom(booking.room_id);
+        if (datePicker) datePicker.setDate(booking.meeting_date, true, "Y-m-d");
+        if (startPicker) startPicker.setDate(booking.start_time, true, "H:i");
+        if (endPicker) endPicker.setDate(booking.end_time, true, "H:i");
+        document.getElementById("personInput").focus();
+    };
+
+    document.getElementById("bookingForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        // Пользователь всегда видит дату в формате ДД.ММ.ГГГГ.
+        const normalizedIso = normalizeDateToIso(dateInput.value);
+        if (normalizedIso) {
+            dateInput.value = formatIsoToDisplay(normalizedIso);
+        }
+        const payload = getFormPayload();
+        if (!payload.booked_by || !payload.purpose || !payload.room_id || !payload.meeting_date || !payload.start_time || !payload.end_time) {
+            showInfo("Проверьте формат даты и времени: ДД.ММ.ГГГГ и ЧЧ:ММ.", "Некорректный ввод");
+            return;
+        }
+        try {
+            if (editId) {
+                await requestJson(`/api/meeting-bookings/${editId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                await requestJson("/api/meeting-bookings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            resetForm();
+            await loadBookings();
+        } catch (error) {
+            showInfo(error.message, "Ошибка");
+        }
+    });
+
+    document.getElementById("filterInput").addEventListener("input", renderBookings);
+    bindMaskedInput(dateInput, applyDateMask);
+    bindMaskedInput(startInput, applyTimeMask);
+    bindMaskedInput(endInput, applyTimeMask);
+    dateInput.addEventListener("blur", () => {
+        const normalizedIso = normalizeDateToIso(dateInput.value);
+        if (normalizedIso) {
+            dateInput.value = formatIsoToDisplay(normalizedIso);
+        }
+    });
+    startInput.addEventListener("blur", () => {
+        const normalized = normalizeTime(startInput.value);
+        if (normalized) startInput.value = normalized;
+    });
+    endInput.addEventListener("blur", () => {
+        const normalized = normalizeTime(endInput.value);
+        if (normalized) endInput.value = normalized;
+    });
+    deleteBtn.addEventListener("click", async () => {
+        if (!editId) return;
+        const confirmed = await showConfirm("Удалить выбранную бронь?", "Подтверждение удаления", "Удалить");
+        if (!confirmed) return;
+        try {
+            await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
+            resetForm();
+            await loadBookings();
+        } catch (error) {
+            showInfo(error.message, "Ошибка");
+        }
+    });
+    cancelEditBtn.addEventListener("click", resetForm);
+
+    const addRoomBtn = document.getElementById("addRoomBtn");
+    if (addRoomBtn) {
+        addRoomBtn.addEventListener("click", async () => {
+            const input = document.getElementById("roomNameInput");
+            const name = (input.value || "").trim();
+            if (!name) return;
+            try {
+                await requestJson("/api/meeting-rooms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                input.value = "";
+                await loadRooms();
+                buildRoomDropdown();
+                if (!document.getElementById("roomSelect").value && rooms.length) {
+                    setSelectedRoom(rooms[0].id);
+                }
+            } catch (error) {
+                showInfo(error.message, "Ошибка");
+            }
+        });
+    }
+
+    const roomDropdown = document.getElementById("roomDropdown");
+    const roomDropdownBtn = document.getElementById("roomDropdownBtn");
+    roomDropdownBtn.addEventListener("click", () => {
+        roomDropdown.classList.toggle("open");
+        if (roomDropdown.classList.contains("open")) {
+            const search = document.getElementById("roomSearch");
+            if (search) {
+                search.value = "";
+                roomDropdown.querySelectorAll(".room-option").forEach((opt) => { opt.style.display = "flex"; });
+                search.focus();
+            }
+        }
+    });
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest("#roomDropdown")) {
+            roomDropdown.classList.remove("open");
+        }
+    });
+
+    async function initPage() {
+        try {
+            initModals();
+            initPickers();
+            await loadRooms();
+            buildRoomDropdown();
+            if (rooms.length) setSelectedRoom(rooms[0].id);
+            await loadBookings();
+            resetForm();
+        } catch (error) {
+            showInfo(error.message, "Ошибка");
+        }
+    }
+
+    initPage();
+</script>
+</body>
+</html>
