@@ -544,11 +544,11 @@
             margin-top: 4px;
         }
         .fc .fc-daygrid-event {
-            border-radius: 999px !important;
-            padding: 2px 8px !important;
-            border: 1px solid #18478f !important;
-            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%) !important;
-            box-shadow: 0 4px 10px rgba(18, 54, 106, 0.18);
+            border-radius: 10px !important;
+            padding: 3px 10px !important;
+            border: 1px solid #2f61ad !important;
+            background: linear-gradient(180deg, #2f67bc 0%, #2459a6 100%) !important;
+            box-shadow: 0 2px 8px rgba(18, 54, 106, 0.16);
         }
         .fc .fc-daygrid-event .fc-event-main,
         .fc .fc-daygrid-event .fc-event-title,
@@ -564,10 +564,10 @@
             display: none !important;
         }
         .fc-event {
-            border: 1px solid #18478f !important;
-            border-radius: 8px !important;
-            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%) !important;
-            box-shadow: 0 6px 12px rgba(22, 63, 122, 0.22);
+            border: 1px solid #2f61ad !important;
+            border-radius: 10px !important;
+            background: linear-gradient(180deg, #2f67bc 0%, #2459a6 100%) !important;
+            box-shadow: 0 3px 10px rgba(22, 63, 122, 0.2);
             cursor: pointer;
         }
         .fc-event-title {
@@ -580,13 +580,21 @@
             color: #eef5ff;
         }
         .fc .fc-timegrid-event-harness {
-            margin-inline: 2px;
+            margin-inline: 0;
+        }
+        .fc .fc-timegrid-event-harness,
+        .fc .fc-timegrid-event-harness-inset {
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
         .fc .fc-timegrid-event {
-            min-height: 36px;
+            min-height: 40px;
+            padding: 2px;
         }
         .fc .fc-event:hover {
-            filter: brightness(1.05);
+            filter: brightness(1.06);
         }
         .fc-timegrid-now-indicator-line { border-color: #ef4452; }
         .fc-timegrid-now-indicator-arrow { border-color: #ef4452; }
@@ -848,6 +856,7 @@
                 <ul class="helper-list">
                     <li>Бронь сразу становится видна всем пользователям.</li>
                     <li>Нельзя занять одну переговорку на пересекающееся время.</li>
+                    <li>Нельзя создавать или редактировать бронь на прошедшие дату и время.</li>
                     <li>Удалять можно только свои брони, редактирование недоступно. Администратор может редактировать и удалять любые брони.</li>
                 </ul>
             </div>
@@ -1091,6 +1100,7 @@
             allowInput: true,
             locale: "ru",
             position: "auto center",
+            minDate: "today",
             disableMobile: true
         });
         startPicker = flatpickr(startInput, {
@@ -1365,6 +1375,21 @@
         return `${hh}:${mm}`;
     }
 
+    function getTodayIsoLocal() {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, "0");
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const yyyy = now.getFullYear();
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function isPastMeetingDateTime(isoDate, timeValue) {
+        if (!isoDate || !timeValue) return false;
+        const meetingStart = new Date(`${isoDate}T${timeValue}:00`);
+        if (Number.isNaN(meetingStart.getTime())) return false;
+        return meetingStart.getTime() < Date.now();
+    }
+
     function applyDateMask(value) {
         const digits = (value || "").replace(/\D/g, "").slice(0, 8);
         if (digits.length <= 2) return digits;
@@ -1440,6 +1465,10 @@
         const payload = getFormPayload();
         if (!payload.booked_by || !payload.purpose || !payload.room_id || !payload.meeting_date || !payload.start_time || !payload.end_time) {
             showInfo("Проверьте формат даты и времени: ДД.ММ.ГГГГ и ЧЧ:ММ.", "Некорректный ввод");
+            return;
+        }
+        if (isPastMeetingDateTime(payload.meeting_date, payload.start_time)) {
+            showInfo("Нельзя создавать или сохранять бронь на прошедшие дату и время.", "Проверка даты");
             return;
         }
         try {
@@ -1525,7 +1554,7 @@
         }
     });
     plannerTodayBtn.addEventListener("click", () => {
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = getTodayIsoLocal();
         if (plannerMode === "day") {
             openDayView(todayIso);
         } else if (plannerCalendar) {

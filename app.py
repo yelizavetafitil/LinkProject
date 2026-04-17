@@ -2,6 +2,7 @@ import sqlite3
 import os
 import collections
 import re
+from datetime import datetime
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
 
@@ -286,6 +287,17 @@ def _meeting_has_conflict(conn, booking_payload, booking_id=None):
     return conn.execute(query, tuple(params)).fetchone() is not None
 
 
+def _is_booking_in_past(payload):
+    try:
+        meeting_start = datetime.strptime(
+            f"{payload['meeting_date']} {payload['start_time']}",
+            "%Y-%m-%d %H:%M"
+        )
+    except (TypeError, ValueError):
+        return False
+    return meeting_start < datetime.now()
+
+
 @app.route('/api/meeting-bookings')
 def get_meeting_bookings():
     if not session.get('logged_in'):
@@ -323,6 +335,8 @@ def create_meeting_booking():
         return jsonify(success=False, error='Заполните все поля бронирования'), 400
     if payload['end_time'] <= payload['start_time']:
         return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
+    if _is_booking_in_past(payload):
+        return jsonify(success=False, error='Нельзя создавать бронь на прошедшие дату и время'), 400
     conn = get_db_connection()
     try:
         room_exists = conn.execute('SELECT 1 FROM meeting_rooms WHERE id = ?', (payload['room_id'],)).fetchone()
@@ -362,6 +376,8 @@ def update_meeting_booking(booking_id):
         return jsonify(success=False, error='Заполните все поля бронирования'), 400
     if payload['end_time'] <= payload['start_time']:
         return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
+    if _is_booking_in_past(payload):
+        return jsonify(success=False, error='Нельзя сохранять бронь на прошедшие дату и время'), 400
     conn = get_db_connection()
     try:
         booking = conn.execute('SELECT owner_username FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
