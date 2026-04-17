@@ -122,6 +122,9 @@ def init_db():
                 meeting_date TEXT NOT NULL,
                 start_time TEXT NOT NULL,
                 end_time TEXT NOT NULL,
+                booking_status TEXT DEFAULT 'active',
+                canceled_by TEXT,
+                canceled_at TEXT,
                 owner_username TEXT NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -131,6 +134,13 @@ def init_db():
         booking_column_names = {row['name'] for row in booking_columns}
         if 'participants_json' not in booking_column_names:
             conn.execute("ALTER TABLE meeting_bookings ADD COLUMN participants_json TEXT DEFAULT '[]'")
+        if 'booking_status' not in booking_column_names:
+            conn.execute("ALTER TABLE meeting_bookings ADD COLUMN booking_status TEXT DEFAULT 'active'")
+            conn.execute("UPDATE meeting_bookings SET booking_status = 'active' WHERE booking_status IS NULL")
+        if 'canceled_by' not in booking_column_names:
+            conn.execute("ALTER TABLE meeting_bookings ADD COLUMN canceled_by TEXT")
+        if 'canceled_at' not in booking_column_names:
+            conn.execute("ALTER TABLE meeting_bookings ADD COLUMN canceled_at TEXT")
         # Синхронизируем справочник разделов с уже существующими ресурсами
         existing_categories = conn.execute(
             "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
@@ -296,6 +306,7 @@ def _meeting_has_conflict(conn, booking_payload, booking_id=None):
         FROM meeting_bookings
         WHERE room_id = ?
           AND meeting_date = ?
+          AND COALESCE(booking_status, 'active') = 'active'
           AND NOT (? <= start_time OR ? >= end_time)
     '''
     if booking_id is not None:
@@ -356,7 +367,8 @@ def get_meeting_bookings():
         rows = conn.execute('''
             SELECT
                 b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
-                b.participants_json, b.meeting_date, b.start_time, b.end_time, b.owner_username
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                b.booking_status, b.canceled_by, b.canceled_at, b.owner_username
             FROM meeting_bookings b
             JOIN meeting_rooms r ON r.id = b.room_id
             ORDER BY b.meeting_date ASC, b.start_time ASC
@@ -442,9 +454,14 @@ def update_meeting_booking(booking_id):
         return jsonify(success=False, error='Нельзя сохранять бронь на прошедшие дату и время'), 400
     conn = get_db_connection()
     try:
-        booking = conn.execute('SELECT owner_username FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
+        booking = conn.execute(
+            'SELECT owner_username, COALESCE(booking_status, "active") AS booking_status FROM meeting_bookings WHERE id = ?',
+            (booking_id,)
+        ).fetchone()
         if not booking:
             return jsonify(success=False, error='Бронь не найдена'), 404
+        if booking['booking_status'] == 'canceled':
+            return jsonify(success=False, error='Отмененную бронь редактировать нельзя'), 409
         current_user = session.get('username')
         if current_user != 'oc1':
             return jsonify(success=False, error='Редактирование доступно только администратору oc1'), 403
@@ -471,15 +488,31 @@ def delete_meeting_booking(booking_id):
         return jsonify(success=False), 403
     conn = get_db_connection()
     try:
-        booking = conn.execute('SELECT owner_username FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
+        booking = conn.execute(
+            'SELECT owner_username, COALESCE(booking_status, "active") AS booking_status FROM meeting_bookings WHERE id = ?',
+            (booking_id,)
+        ).fetchone()
         if not booking:
             return jsonify(success=False, error='Бронь не найдена'), 404
         current_user = session.get('username')
         if current_user != 'oc1' and booking['owner_username'] != current_user:
             return jsonify(success=False, error='Можно удалять только свои брони'), 403
+        if current_user == 'oc1':
+            if booking['booking_status'] == 'canceled':
+                return jsonify(success=False, error='Бронь уже отменена'), 409
+            conn.execute('''
+                UPDATE meeting_bookings
+                SET booking_status = 'canceled',
+                    canceled_by = ?,
+                    canceled_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (current_user, booking_id))
+            conn.commit()
+            return jsonify(success=True, status='canceled')
         conn.execute('DELETE FROM meeting_bookings WHERE id = ?', (booking_id,))
         conn.commit()
-        return jsonify(success=True)
+        return jsonify(success=True, status='deleted')
     finally:
         conn.close()
 

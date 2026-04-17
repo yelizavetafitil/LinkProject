@@ -706,6 +706,14 @@
         .fc .fc-event:hover {
             filter: brightness(1.06);
         }
+        .fc .fc-event.booking-event-canceled {
+            --event-bg: linear-gradient(180deg, #d9893b 0%, #be6f26 100%);
+            --event-border: #b56723;
+            --event-inner-bg: linear-gradient(180deg, rgba(255, 247, 236, 0.2) 0%, rgba(255, 234, 212, 0.1) 100%);
+        }
+        .fc .fc-event.booking-event-canceled .booking-event-line strong {
+            color: #fff4e7;
+        }
         .fc-timegrid-now-indicator-line { border-color: #ef4452; }
         .fc-timegrid-now-indicator-arrow { border-color: #ef4452; }
         .fc .fc-button-primary {
@@ -977,6 +985,7 @@
                     <li>Бронь сразу становится видна всем пользователям.</li>
                     <li>Нельзя занять одну переговорку на пересекающееся время.</li>
                     <li>Нельзя создавать или редактировать бронь на прошедшие дату и время.</li>
+                    <li>Отмененные администратором встречи остаются в календаре и отмечаются оранжевым.</li>
                     <li>Удалять можно только свои брони, редактирование недоступно. Администратор может редактировать и удалять любые брони.</li>
                 </ul>
             </div>
@@ -1195,16 +1204,19 @@
                     ? participants.map((person) => person.name || person.login).filter(Boolean).join(", ")
                     : "не указаны";
                 const isMonthView = info.view && info.view.type === "dayGridMonth";
+                const isCanceled = ext.bookingStatus === "canceled";
                 const wrap = document.createElement("div");
                 wrap.className = "booking-event-content";
                 if (isMonthView) {
                     wrap.innerHTML = `
+                        ${isCanceled ? `<div class="booking-event-line"><strong>ОТМЕНЕНА</strong></div>` : ""}
                         <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
                         <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
                         <div class="booking-event-line">${escapeHtml(ext.roomName || "")}</div>
                     `;
                 } else {
                     wrap.innerHTML = `
+                        ${isCanceled ? `<div class="booking-event-line"><strong>ОТМЕНЕНА</strong></div>` : ""}
                         <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
                         <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
                         <div class="booking-event-line">Переговорка: ${escapeHtml(ext.roomName || "")}</div>
@@ -1400,7 +1412,7 @@
         if (plannerCalendar) {
             plannerCalendar.removeAllEvents();
             const events = filtered.map((b) => {
-                const colors = getRoomEventColors(b.room_id);
+                const colors = getRoomEventColors(b);
                 return {
                     title: b.purpose,
                     start: `${b.meeting_date}T${b.start_time}`,
@@ -1408,12 +1420,15 @@
                     backgroundColor: colors.backgroundColor,
                     borderColor: colors.borderColor,
                     textColor: colors.textColor,
+                    classNames: b.booking_status === "canceled" ? ["booking-event-canceled"] : [],
                     extendedProps: {
                         bookingId: b.id,
                         owner: b.owner_username,
                         bookedBy: b.booked_by,
                         roomName: b.room_name,
                         participants: b.participants || [],
+                        bookingStatus: b.booking_status || "active",
+                        canceledBy: b.canceled_by || "",
                         eventGradient: colors.eventGradient,
                         eventBorder: colors.eventBorder
                     }
@@ -1537,8 +1552,18 @@
         };
     }
 
-    function getRoomEventColors(roomId) {
-        const idNumber = Number(roomId);
+    function getRoomEventColors(booking) {
+        if (booking && booking.booking_status === "canceled") {
+            return {
+                backgroundColor: "#d9893b",
+                borderColor: "#b56723",
+                textColor: "#fff8ee",
+                eventGradient: "linear-gradient(180deg, #d9893b 0%, #be6f26 100%)",
+                eventBorder: "#b56723",
+                eventInnerBg: "linear-gradient(180deg, rgba(255, 247, 236, 0.2) 0%, rgba(255, 234, 212, 0.1) 100%)"
+            };
+        }
+        const idNumber = Number(booking && booking.room_id);
         const safeId = Number.isFinite(idNumber) ? Math.abs(idNumber) : 0;
         const palette = ROOM_EVENT_PALETTE[safeId % ROOM_EVENT_PALETTE.length];
         return {
@@ -1722,12 +1747,17 @@
     window.startEdit = (id) => {
         const booking = bookings.find((b) => b.id === id);
         if (!booking) return;
+        if (booking.booking_status === "canceled") {
+            showInfo("Эта встреча уже отменена администратором.", "Отмененная бронь");
+            return;
+        }
         bookingFormCollapse.show();
         const canEdit = isSuperAdmin;
         editId = id;
         formTitle.textContent = canEdit ? "Редактирование брони" : "Удаление своей брони";
         submitBtn.textContent = "Сохранить изменения";
         deleteBtn.classList.remove("d-none");
+        deleteBtn.textContent = canEdit ? "Отменить бронь" : "Удалить бронь";
         cancelEditBtn.classList.remove("d-none");
         setFormEditable(canEdit);
         document.getElementById("personInput").value = booking.booked_by;
@@ -1836,7 +1866,11 @@
     });
     deleteBtn.addEventListener("click", async () => {
         if (!editId) return;
-        const confirmed = await showConfirm("Удалить выбранную бронь?", "Подтверждение удаления", "Удалить");
+        const actionLabel = isSuperAdmin ? "Отменить" : "Удалить";
+        const actionText = isSuperAdmin
+            ? "Отменить выбранную бронь? Она останется в календаре как отмененная."
+            : "Удалить выбранную бронь?";
+        const confirmed = await showConfirm(actionText, "Подтверждение действия", actionLabel);
         if (!confirmed) return;
         try {
             await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
