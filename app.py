@@ -2,6 +2,7 @@ import sqlite3
 import os
 import collections
 import re
+import json
 from datetime import datetime
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
@@ -117,6 +118,7 @@ def init_db():
                 room_id INTEGER NOT NULL,
                 booked_by TEXT NOT NULL,
                 purpose TEXT NOT NULL,
+                participants_json TEXT DEFAULT '[]',
                 meeting_date TEXT NOT NULL,
                 start_time TEXT NOT NULL,
                 end_time TEXT NOT NULL,
@@ -125,6 +127,10 @@ def init_db():
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(room_id) REFERENCES meeting_rooms(id)
             )''')
+        booking_columns = conn.execute("PRAGMA table_info(meeting_bookings)").fetchall()
+        booking_column_names = {row['name'] for row in booking_columns}
+        if 'participants_json' not in booking_column_names:
+            conn.execute("ALTER TABLE meeting_bookings ADD COLUMN participants_json TEXT DEFAULT '[]'")
         # Синхронизируем справочник разделов с уже существующими ресурсами
         existing_categories = conn.execute(
             "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
@@ -150,10 +156,17 @@ def check_ldap_auth(username, password):
         server = Server(LDAP_CONFIG['uri'], get_info=ALL, connect_timeout=5)
         conn = Connection(server, user=LDAP_CONFIG['bind_dn'], password=LDAP_CONFIG['bind_password'], auto_bind=True)
         search_filter = f"({LDAP_CONFIG['user_attr']}={username})"
-        conn.search(LDAP_CONFIG['base'], search_filter, SUBTREE, attributes=['distinguishedName'])
+        conn.search(LDAP_CONFIG['base'], search_filter, SUBTREE, attributes=['distinguishedName', 'displayName', 'cn'])
         if not conn.entries: return False
-        user_dn = conn.entries[0].distinguishedName.value
+        user_entry = conn.entries[0]
+        user_dn = user_entry.distinguishedName.value
+        display_name = ''
+        if user_entry.displayName:
+            display_name = str(user_entry.displayName).strip()
+        if not display_name and user_entry.cn:
+            display_name = str(user_entry.cn).strip()
         user_conn = Connection(server, user=user_dn, password=password, auto_bind=True)
+        session['display_name'] = display_name or username
         session['ad_groups'] = get_user_ad_groups(conn, user_dn)
         return True
     except:
@@ -209,7 +222,12 @@ def meeting_rooms_page():
     if not session.get('logged_in'):
         return redirect(url_for('login_page'))
     is_admin = session.get('username') in MASTER_ADMINS
-    return render_template('meeting_rooms.html', is_admin=is_admin, user=session.get('username'))
+    return render_template(
+        'meeting_rooms.html',
+        is_admin=is_admin,
+        user_login=session.get('username'),
+        user_display=session.get('display_name') or session.get('username')
+    )
 
 
 @app.route('/logout')
@@ -298,6 +316,37 @@ def _is_booking_in_past(payload):
     return meeting_start < datetime.now()
 
 
+def _get_booked_by_display_name():
+    return (session.get('display_name') or session.get('username') or '').strip()
+
+
+def _normalize_participants(participants):
+    if not isinstance(participants, list):
+        return []
+    normalized = []
+    seen_logins = set()
+    for item in participants:
+        if not isinstance(item, dict):
+            continue
+        login = str(item.get('login') or '').strip().lower()
+        name = str(item.get('name') or '').strip()
+        if not login or not name or login in seen_logins:
+            continue
+        seen_logins.add(login)
+        normalized.append({'login': login, 'name': name})
+    return normalized
+
+
+def _decode_participants(raw_value):
+    if not raw_value:
+        return []
+    try:
+        parsed = json.loads(raw_value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return _normalize_participants(parsed)
+
+
 @app.route('/api/meeting-bookings')
 def get_meeting_bookings():
     if not session.get('logged_in'):
@@ -307,12 +356,18 @@ def get_meeting_bookings():
         rows = conn.execute('''
             SELECT
                 b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
-                b.meeting_date, b.start_time, b.end_time, b.owner_username
+                b.participants_json, b.meeting_date, b.start_time, b.end_time, b.owner_username
             FROM meeting_bookings b
             JOIN meeting_rooms r ON r.id = b.room_id
             ORDER BY b.meeting_date ASC, b.start_time ASC
         ''').fetchall()
-        return jsonify([dict(r) for r in rows])
+        data = []
+        for row in rows:
+            item = dict(row)
+            item['participants'] = _decode_participants(item.get('participants_json'))
+            item.pop('participants_json', None)
+            data.append(item)
+        return jsonify(data)
     finally:
         conn.close()
 
@@ -324,15 +379,20 @@ def create_meeting_booking():
     data = request.json or {}
     payload = {
         'room_id': data.get('room_id'),
-        'booked_by': (data.get('booked_by') or '').strip(),
         'purpose': (data.get('purpose') or '').strip(),
+        'participants': _normalize_participants(data.get('participants')),
         'meeting_date': (data.get('meeting_date') or '').strip(),
         'start_time': (data.get('start_time') or '').strip(),
         'end_time': (data.get('end_time') or '').strip(),
     }
-    if not all([payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+    if not all([payload['room_id'], payload['purpose'], payload['meeting_date'],
                 payload['start_time'], payload['end_time']]):
         return jsonify(success=False, error='Заполните все поля бронирования'), 400
+    if not payload['participants']:
+        return jsonify(success=False, error='Добавьте хотя бы одного участника из AD'), 400
+    booked_by = _get_booked_by_display_name()
+    if not booked_by:
+        return jsonify(success=False, error='Не удалось определить текущего пользователя AD'), 400
     if payload['end_time'] <= payload['start_time']:
         return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
     if _is_booking_in_past(payload):
@@ -346,11 +406,11 @@ def create_meeting_booking():
             return jsonify(success=False, error='На выбранное время переговорка уже занята'), 409
         conn.execute('''
             INSERT INTO meeting_bookings (
-                room_id, booked_by, purpose, meeting_date, start_time, end_time, owner_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                room_id, booked_by, purpose, participants_json, meeting_date, start_time, end_time, owner_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
-            payload['start_time'], payload['end_time'], session.get('username')
+            payload['room_id'], booked_by, payload['purpose'], json.dumps(payload['participants'], ensure_ascii=False),
+            payload['meeting_date'], payload['start_time'], payload['end_time'], session.get('username')
         ))
         conn.commit()
         return jsonify(success=True)
@@ -365,15 +425,17 @@ def update_meeting_booking(booking_id):
     data = request.json or {}
     payload = {
         'room_id': data.get('room_id'),
-        'booked_by': (data.get('booked_by') or '').strip(),
         'purpose': (data.get('purpose') or '').strip(),
+        'participants': _normalize_participants(data.get('participants')),
         'meeting_date': (data.get('meeting_date') or '').strip(),
         'start_time': (data.get('start_time') or '').strip(),
         'end_time': (data.get('end_time') or '').strip(),
     }
-    if not all([payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
+    if not all([payload['room_id'], payload['purpose'], payload['meeting_date'],
                 payload['start_time'], payload['end_time']]):
         return jsonify(success=False, error='Заполните все поля бронирования'), 400
+    if not payload['participants']:
+        return jsonify(success=False, error='Добавьте хотя бы одного участника из AD'), 400
     if payload['end_time'] <= payload['start_time']:
         return jsonify(success=False, error='Время окончания должно быть больше времени начала'), 400
     if _is_booking_in_past(payload):
@@ -390,12 +452,12 @@ def update_meeting_booking(booking_id):
             return jsonify(success=False, error='На выбранное время переговорка уже занята'), 409
         conn.execute('''
             UPDATE meeting_bookings
-            SET room_id = ?, booked_by = ?, purpose = ?, meeting_date = ?, start_time = ?, end_time = ?,
+            SET room_id = ?, purpose = ?, participants_json = ?, meeting_date = ?, start_time = ?, end_time = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', (
-            payload['room_id'], payload['booked_by'], payload['purpose'], payload['meeting_date'],
-            payload['start_time'], payload['end_time'], booking_id
+            payload['room_id'], payload['purpose'], json.dumps(payload['participants'], ensure_ascii=False),
+            payload['meeting_date'], payload['start_time'], payload['end_time'], booking_id
         ))
         conn.commit()
         return jsonify(success=True)

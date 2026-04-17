@@ -268,6 +268,92 @@
         }
         .room-check-icon { opacity: 0; color: var(--primary); }
         .room-option.selected .room-check-icon { opacity: 1; }
+        .participants-selector {
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            padding: 0 12px;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .participants-chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 0;
+            width: 100%;
+        }
+        .participants-selector.has-chips {
+            padding: 8px;
+            align-items: flex-start;
+        }
+        .participants-selector.has-chips .participants-chip-list {
+            margin-bottom: 6px;
+        }
+        .participants-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            border: 1px solid #d3e2f7;
+            background: #edf4ff;
+            color: #234f89;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+        }
+        .participants-chip button {
+            border: none;
+            background: transparent;
+            color: #406b9f;
+            font-size: 12px;
+            line-height: 1;
+            padding: 0;
+        }
+        .participants-input {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            font-size: 14px;
+            min-height: 40px;
+        }
+        .participants-input:focus { outline: none; }
+        .participants-suggestions {
+            position: absolute;
+            z-index: 40;
+            left: 0;
+            right: 0;
+            top: calc(100% + 6px);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 10px 18px rgba(17, 46, 90, 0.12);
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+        }
+        .participants-suggestions.show { display: block; }
+        .participants-option {
+            padding: 9px 10px;
+            border-bottom: 1px solid #edf2f9;
+            cursor: pointer;
+            display: grid;
+            gap: 1px;
+        }
+        .participants-option:last-child { border-bottom: none; }
+        .participants-option:hover { background: #f6faff; }
+        .participants-option-name {
+            color: #1f426f;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .participants-option-login {
+            color: #6b84a2;
+            font-size: 12px;
+        }
         .time-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -546,8 +632,8 @@
         .fc .fc-daygrid-event {
             border-radius: 10px !important;
             padding: 3px 10px !important;
-            border: 1px solid #2f61ad !important;
-            background: linear-gradient(180deg, #2f67bc 0%, #2459a6 100%) !important;
+            border: 1px solid var(--event-border, #2f61ad) !important;
+            background: var(--event-bg, linear-gradient(180deg, #2f67bc 0%, #2459a6 100%)) !important;
             box-shadow: 0 2px 8px rgba(18, 54, 106, 0.16);
         }
         .fc .fc-daygrid-event .fc-event-main,
@@ -564,9 +650,9 @@
             display: none !important;
         }
         .fc-event {
-            border: 1px solid #2f61ad !important;
+            border: 1px solid var(--event-border, #2f61ad) !important;
             border-radius: 10px !important;
-            background: linear-gradient(180deg, #2f67bc 0%, #2459a6 100%) !important;
+            background: var(--event-bg, linear-gradient(180deg, #2f67bc 0%, #2459a6 100%)) !important;
             box-shadow: 0 3px 10px rgba(22, 63, 122, 0.2);
             cursor: pointer;
         }
@@ -579,19 +665,43 @@
             font-size: 11px;
             color: #eef5ff;
         }
+        .fc .fc-event .booking-event-content {
+            display: grid;
+            gap: 1px;
+            font-size: 10px;
+            line-height: 1.2;
+        }
+        .fc .fc-event .booking-event-line {
+            color: #f3f8ff;
+            font-weight: 500;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+        .fc .fc-event .booking-event-line strong {
+            color: #ffffff;
+            font-weight: 700;
+        }
         .fc .fc-timegrid-event-harness {
             margin-inline: 0;
-        }
-        .fc .fc-timegrid-event-harness,
-        .fc .fc-timegrid-event-harness-inset {
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
         }
         .fc .fc-timegrid-event {
             min-height: 40px;
             padding: 2px;
+        }
+        .fc .fc-event .fc-event-main {
+            background: var(--event-inner-bg, rgba(255, 255, 255, 0.08));
+            border-radius: 8px;
+            padding: 2px 4px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .fc .fc-timegrid-event .fc-event-main-frame {
+            height: 100%;
+            min-height: 100%;
+        }
+        .fc .fc-timegrid-event .fc-event-main {
+            max-height: 100%;
         }
         .fc .fc-event:hover {
             filter: brightness(1.06);
@@ -777,7 +887,7 @@
     <div class="container d-flex justify-content-between align-items-center">
         <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип компании"></a>
         <div class="topbar-actions">
-            <span class="topbar-user fw-medium text-muted">{{ user }}</span>
+            <span class="topbar-user fw-medium text-muted">{{ user_display }}</span>
             <a href="/" class="btn btn-outline-secondary btn-sm topbar-btn">К ресурсам</a>
             <a href="/logout" class="btn btn-light btn-sm topbar-btn">Выход</a>
         </div>
@@ -812,10 +922,20 @@
                 <div class="field-block">
                     <label class="field-label" for="personInput">Кто бронирует</label>
                     <input id="personInput" class="form-control" placeholder="ФИО или подразделение" required>
+                    <p class="field-hint">Поле заполняется автоматически по текущему AD-пользователю.</p>
                 </div>
                 <div class="field-block">
                     <label class="field-label" for="purposeInput">Тема встречи</label>
                     <input id="purposeInput" class="form-control" placeholder="Например: совещание по проекту" required>
+                </div>
+                <div class="field-block">
+                    <label class="field-label" for="participantsSearchInput">Кто участвует от предприятия (AD)</label>
+                    <div class="participants-selector" id="participantsSelector">
+                        <div id="participantsChipList" class="participants-chip-list"></div>
+                        <input id="participantsSearchInput" class="form-control participants-input" placeholder="Начните вводить ФИО из AD..." autocomplete="off">
+                        <div id="participantsSuggestions" class="participants-suggestions"></div>
+                    </div>
+                    <p class="field-hint">Выберите минимум одного участника из корпоративного AD.</p>
                 </div>
                 <div class="field-block">
                     <label class="field-label" for="roomSelect">Переговорка</label>
@@ -913,10 +1033,7 @@
             <div class="planner-header">
                 <h3 id="plannerTitle" class="planner-title">Календарь встреч</h3>
                 <div class="planner-controls">
-                    <button id="plannerPrevBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" title="Предыдущий период">‹</button>
-                    <button id="plannerNextBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" title="Следующий период">›</button>
                     <button id="plannerMonthBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">Месяц</button>
-                    <button id="plannerDayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">День</button>
                     <button id="plannerTodayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">Сегодня</button>
                 </div>
             </div>
@@ -963,11 +1080,14 @@
 
 <script>
     const isAdmin = {{ 'true' if is_admin else 'false' }};
-    const currentUser = "{{ user }}";
+    const currentUser = "{{ user_login }}";
+    const currentUserDisplay = "{{ user_display }}";
     const isSuperAdmin = currentUser === "oc1";
     let rooms = [];
     let bookings = [];
     let editId = null;
+    let selectedParticipants = [];
+    let participantsSearchTimer = null;
     const formTitle = document.getElementById("formTitle");
     const submitBtn = document.getElementById("submitBtn");
     const deleteBtn = document.getElementById("deleteBtn");
@@ -986,11 +1106,12 @@
     const clearDateFilterBtn = document.getElementById("clearDateFilterBtn");
     const plannerWrap = document.querySelector(".planner-wrap");
     const plannerTitle = document.getElementById("plannerTitle");
-    const plannerPrevBtn = document.getElementById("plannerPrevBtn");
-    const plannerNextBtn = document.getElementById("plannerNextBtn");
     const plannerMonthBtn = document.getElementById("plannerMonthBtn");
-    const plannerDayBtn = document.getElementById("plannerDayBtn");
     const plannerTodayBtn = document.getElementById("plannerTodayBtn");
+    const participantsSelector = document.getElementById("participantsSelector");
+    const participantsChipList = document.getElementById("participantsChipList");
+    const participantsSearchInput = document.getElementById("participantsSearchInput");
+    const participantsSuggestions = document.getElementById("participantsSuggestions");
     let datePicker;
     let startPicker;
     let endPicker;
@@ -1002,6 +1123,15 @@
     let bookingFormCollapse;
     let roomsCollapse;
     let plannerMode = "month";
+    const ROOM_EVENT_PALETTE = Array.from({ length: 12 }, (_, index) => {
+        const baseHue = 210 + (index * 4); // Близкие холодные оттенки для легкого различия переговорок.
+        return {
+            start: `hsl(${baseHue} 62% 48%)`,
+            end: `hsl(${baseHue + 2} 58% 41%)`,
+            border: `hsl(${baseHue + 1} 54% 37%)`,
+            inner: `linear-gradient(180deg, hsla(${baseHue + 1}, 88%, 94%, 0.18) 0%, hsla(${baseHue + 1}, 82%, 90%, 0.07) 100%)`
+        };
+    });
 
     function initModals() {
         const confirmEl = document.getElementById("confirmActionModal");
@@ -1036,6 +1166,7 @@
             initialView: "dayGridMonth",
             nowIndicator: true,
             allDaySlot: false,
+            slotEventOverlap: false,
             height: "auto",
             slotMinTime: "06:00:00",
             slotMaxTime: "23:00:00",
@@ -1050,11 +1181,53 @@
                 const bookingId = info.event.extendedProps.bookingId;
                 if (bookingId) startEdit(bookingId);
             },
+            eventContent: (info) => {
+                const formatTime = (dateValue) => {
+                    const dateObj = dateValue instanceof Date ? dateValue : new Date(dateValue);
+                    if (Number.isNaN(dateObj.getTime())) return "";
+                    return dateObj.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+                };
+                const startText = formatTime(info.event.start);
+                const endText = formatTime(info.event.end);
+                const ext = info.event.extendedProps || {};
+                const participants = Array.isArray(ext.participants) ? ext.participants : [];
+                const participantsText = participants.length
+                    ? participants.map((person) => person.name || person.login).filter(Boolean).join(", ")
+                    : "не указаны";
+                const isMonthView = info.view && info.view.type === "dayGridMonth";
+                const wrap = document.createElement("div");
+                wrap.className = "booking-event-content";
+                if (isMonthView) {
+                    wrap.innerHTML = `
+                        <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
+                        <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
+                        <div class="booking-event-line">${escapeHtml(ext.roomName || "")}</div>
+                    `;
+                } else {
+                    wrap.innerHTML = `
+                        <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
+                        <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
+                        <div class="booking-event-line">Переговорка: ${escapeHtml(ext.roomName || "")}</div>
+                        <div class="booking-event-line">Бронирует: ${escapeHtml(ext.bookedBy || "")}</div>
+                        <div class="booking-event-line">Участники: ${escapeHtml(participantsText)}</div>
+                    `;
+                }
+                return { domNodes: [wrap] };
+            },
+            eventDidMount: (info) => {
+                const gradient = info.event.extendedProps.eventGradient;
+                const border = info.event.extendedProps.eventBorder;
+                const innerBg = info.event.extendedProps.eventInnerBg;
+                if (gradient) info.el.style.setProperty("--event-bg", gradient);
+                if (border) info.el.style.setProperty("--event-border", border);
+                if (innerBg) info.el.style.setProperty("--event-inner-bg", innerBg);
+            },
             dateClick: (info) => {
                 openDayView(info.dateStr.slice(0, 10));
             }
         });
         plannerCalendar.render();
+        plannerCalendar.gotoDate(getTodayIsoLocal());
         updatePlannerHeader();
     }
 
@@ -1066,12 +1239,8 @@
             plannerTitle.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
             plannerMonthBtn.classList.remove("btn-outline-secondary");
             plannerMonthBtn.classList.add("btn-primary");
-            plannerDayBtn.classList.remove("btn-primary");
-            plannerDayBtn.classList.add("btn-outline-secondary");
         } else {
             plannerTitle.textContent = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-            plannerDayBtn.classList.remove("btn-outline-secondary");
-            plannerDayBtn.classList.add("btn-primary");
             plannerMonthBtn.classList.remove("btn-primary");
             plannerMonthBtn.classList.add("btn-outline-secondary");
         }
@@ -1148,12 +1317,13 @@
     }
 
     function setFormEditable(isEditable) {
-        personInput.readOnly = !isEditable;
+        personInput.readOnly = true;
         purposeInput.readOnly = !isEditable;
         dateInput.readOnly = !isEditable;
         startInput.readOnly = !isEditable;
         endInput.readOnly = !isEditable;
         document.getElementById("roomDropdownBtn").disabled = !isEditable;
+        participantsSearchInput.disabled = !isEditable;
         submitBtn.classList.toggle("d-none", !isEditable);
     }
 
@@ -1205,7 +1375,10 @@
         const filtered = bookings
             .filter((b) => {
                 if (!q) return true;
-                const fields = [b.booked_by, b.purpose, b.room_name, b.owner_username];
+                const participantsText = Array.isArray(b.participants)
+                    ? b.participants.map((person) => `${person.name} ${person.login}`).join(" ")
+                    : "";
+                const fields = [b.booked_by, b.purpose, b.room_name, b.owner_username, participantsText];
                 const byWordStart = fields.some((field) => startsWithWord(field, q));
                 const byDate = !filterDateIso || b.meeting_date === filterDateIso;
                 if (!byDate) return false;
@@ -1226,12 +1399,26 @@
         const plannerEmpty = document.getElementById("plannerEmpty");
         if (plannerCalendar) {
             plannerCalendar.removeAllEvents();
-            const events = filtered.map((b) => ({
-                title: `${b.purpose} · ${b.room_name}`,
-                start: `${b.meeting_date}T${b.start_time}`,
-                end: `${b.meeting_date}T${b.end_time}`,
-                extendedProps: { bookingId: b.id, owner: b.owner_username, bookedBy: b.booked_by }
-            }));
+            const events = filtered.map((b) => {
+                const colors = getRoomEventColors(b.room_id);
+                return {
+                    title: b.purpose,
+                    start: `${b.meeting_date}T${b.start_time}`,
+                    end: `${b.meeting_date}T${b.end_time}`,
+                    backgroundColor: colors.backgroundColor,
+                    borderColor: colors.borderColor,
+                    textColor: colors.textColor,
+                    extendedProps: {
+                        bookingId: b.id,
+                        owner: b.owner_username,
+                        bookedBy: b.booked_by,
+                        roomName: b.room_name,
+                        participants: b.participants || [],
+                        eventGradient: colors.eventGradient,
+                        eventBorder: colors.eventBorder
+                    }
+                };
+            });
             plannerCalendar.addEventSource(events);
             if (plannerMode === "day") {
                 const target = filterDateIso || plannerCalendar.getDate().toISOString().slice(0, 10);
@@ -1247,9 +1434,14 @@
     function resetForm() {
         editId = null;
         document.getElementById("bookingForm").reset();
+        personInput.value = currentUserDisplay;
         if (datePicker) datePicker.clear();
         if (startPicker) startPicker.clear();
         if (endPicker) endPicker.clear();
+        selectedParticipants = [];
+        renderParticipantsChips();
+        participantsSearchInput.value = "";
+        hideParticipantsSuggestions();
         setSelectedRoom(rooms.length ? rooms[0].id : "");
         formTitle.textContent = "Новая бронь";
         submitBtn.textContent = "Сохранить бронь";
@@ -1337,12 +1529,104 @@
         const normalizedEnd = normalizeTime(endInput.value);
         return {
             room_id: Number(document.getElementById("roomSelect").value),
-            booked_by: document.getElementById("personInput").value.trim(),
             purpose: document.getElementById("purposeInput").value.trim(),
+            participants: selectedParticipants,
             meeting_date: normalizedDate,
             start_time: normalizedStart,
             end_time: normalizedEnd
         };
+    }
+
+    function getRoomEventColors(roomId) {
+        const idNumber = Number(roomId);
+        const safeId = Number.isFinite(idNumber) ? Math.abs(idNumber) : 0;
+        const palette = ROOM_EVENT_PALETTE[safeId % ROOM_EVENT_PALETTE.length];
+        return {
+            backgroundColor: palette.start,
+            borderColor: palette.border,
+            textColor: "#f8fbff",
+            eventGradient: `linear-gradient(180deg, ${palette.start} 0%, ${palette.end} 100%)`,
+            eventBorder: palette.border,
+            eventInnerBg: palette.inner
+        };
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function renderParticipantsChips() {
+        participantsSelector.classList.toggle("has-chips", selectedParticipants.length > 0);
+        participantsChipList.innerHTML = selectedParticipants.map((person) => `
+            <span class="participants-chip">
+                ${person.name}
+                <button type="button" data-login="${person.login}" title="Убрать">✕</button>
+            </span>
+        `).join("");
+        participantsChipList.querySelectorAll("button[data-login]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const login = btn.getAttribute("data-login");
+                selectedParticipants = selectedParticipants.filter((p) => p.login !== login);
+                renderParticipantsChips();
+            });
+        });
+    }
+
+    function hideParticipantsSuggestions() {
+        participantsSuggestions.classList.remove("show");
+        participantsSuggestions.innerHTML = "";
+    }
+
+    function showParticipantsSuggestions(items) {
+        if (!items.length) {
+            participantsSuggestions.innerHTML = `<div class="participants-option"><span class="participants-option-login">Ничего не найдено</span></div>`;
+            participantsSuggestions.classList.add("show");
+            return;
+        }
+        participantsSuggestions.innerHTML = items.map((item) => `
+            <div class="participants-option" data-login="${item.login}" data-name="${item.name}">
+                <span class="participants-option-name">${item.name}</span>
+                <span class="participants-option-login">${item.login}</span>
+            </div>
+        `).join("");
+        participantsSuggestions.classList.add("show");
+        participantsSuggestions.querySelectorAll(".participants-option[data-login]").forEach((opt) => {
+            opt.addEventListener("click", () => {
+                const login = opt.getAttribute("data-login");
+                const name = opt.getAttribute("data-name");
+                if (!selectedParticipants.some((person) => person.login === login)) {
+                    selectedParticipants.push({ login, name });
+                    renderParticipantsChips();
+                }
+                participantsSearchInput.value = "";
+                hideParticipantsSuggestions();
+                participantsSearchInput.focus();
+            });
+        });
+    }
+
+    async function searchAdUsers(query) {
+        const q = (query || "").trim();
+        if (q.length < 2) {
+            hideParticipantsSuggestions();
+            return;
+        }
+        try {
+            const entities = await requestJson(`/get_ad_entities?q=${encodeURIComponent(q)}`);
+            const usersOnly = (entities || [])
+                .filter((item) => item && item.type === "Юзер")
+                .map((item) => ({ login: String(item.login || "").trim(), name: String(item.name || "").trim() }))
+                .filter((item) => item.login && item.name);
+            const available = usersOnly.filter((item) => !selectedParticipants.some((selected) => selected.login === item.login));
+            showParticipantsSuggestions(available.slice(0, 20));
+        } catch (error) {
+            hideParticipantsSuggestions();
+        }
     }
 
     function normalizeDateToIso(value) {
@@ -1448,6 +1732,10 @@
         setFormEditable(canEdit);
         document.getElementById("personInput").value = booking.booked_by;
         document.getElementById("purposeInput").value = booking.purpose;
+        selectedParticipants = Array.isArray(booking.participants) ? booking.participants : [];
+        renderParticipantsChips();
+        participantsSearchInput.value = "";
+        hideParticipantsSuggestions();
         setSelectedRoom(booking.room_id);
         if (datePicker) datePicker.setDate(booking.meeting_date, true, "Y-m-d");
         if (startPicker) startPicker.setDate(booking.start_time, true, "H:i");
@@ -1463,8 +1751,12 @@
             dateInput.value = formatIsoToDisplay(normalizedIso);
         }
         const payload = getFormPayload();
-        if (!payload.booked_by || !payload.purpose || !payload.room_id || !payload.meeting_date || !payload.start_time || !payload.end_time) {
+        if (!payload.purpose || !payload.room_id || !payload.meeting_date || !payload.start_time || !payload.end_time) {
             showInfo("Проверьте формат даты и времени: ДД.ММ.ГГГГ и ЧЧ:ММ.", "Некорректный ввод");
+            return;
+        }
+        if (!payload.participants || payload.participants.length === 0) {
+            showInfo("Добавьте хотя бы одного участника из AD.", "Проверка участников");
             return;
         }
         if (isPastMeetingDateTime(payload.meeting_date, payload.start_time)) {
@@ -1536,30 +1828,10 @@
         openMonthView();
         renderBookings();
     });
-    plannerDayBtn.addEventListener("click", () => {
-        const target = normalizeDateToIso(listDateFilter.value) || new Date().toISOString().slice(0, 10);
-        openDayView(target);
-        renderBookings();
-    });
-    plannerPrevBtn.addEventListener("click", () => {
-        if (plannerCalendar) {
-            plannerCalendar.prev();
-            updatePlannerHeader();
-        }
-    });
-    plannerNextBtn.addEventListener("click", () => {
-        if (plannerCalendar) {
-            plannerCalendar.next();
-            updatePlannerHeader();
-        }
-    });
     plannerTodayBtn.addEventListener("click", () => {
         const todayIso = getTodayIsoLocal();
-        if (plannerMode === "day") {
+        if (plannerCalendar) {
             openDayView(todayIso);
-        } else if (plannerCalendar) {
-            plannerCalendar.gotoDate(todayIso);
-            updatePlannerHeader();
         }
     });
     deleteBtn.addEventListener("click", async () => {
@@ -1616,6 +1888,22 @@
     document.addEventListener("click", (event) => {
         if (!event.target.closest("#roomDropdown")) {
             roomDropdown.classList.remove("open");
+        }
+        if (!event.target.closest("#participantsSelector")) {
+            hideParticipantsSuggestions();
+        }
+    });
+    participantsSearchInput.addEventListener("input", () => {
+        if (participantsSearchTimer) {
+            clearTimeout(participantsSearchTimer);
+        }
+        participantsSearchTimer = setTimeout(() => {
+            searchAdUsers(participantsSearchInput.value);
+        }, 220);
+    });
+    participantsSearchInput.addEventListener("focus", () => {
+        if ((participantsSearchInput.value || "").trim().length >= 2) {
+            searchAdUsers(participantsSearchInput.value);
         }
     });
 
