@@ -3,7 +3,13 @@ import os
 import collections
 import re
 import json
+import smtplib
+from email.message import EmailMessage
+from email.utils import format_datetime
+from email.header import Header
+from email import policy
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
 
@@ -35,6 +41,14 @@ DB_PATH = 'database.db'
 LOGO_FILENAME = 'image2_hq.png'
 PHONEBOOK_PATH = 'phonebook.xlsx'
 PHONEBOOK_COLUMNS = ['dept', 'pos', 'surname', 'name', 'work', 'home', 'mobile']
+MAIL_DOMAIN = 'energoprom.by'
+MAIL_SENDER = f'robot-bnp@{MAIL_DOMAIN}'
+SMTP_HOST = os.environ.get('SMTP_HOST', '192.168.0.28')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USERNAME = os.environ.get('SMTP_USERNAME', 'robot-bnp')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '^nO@u(Flu5+zH&v>')
+SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', '1') == '1'
+APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
 
@@ -358,6 +372,55 @@ def _decode_participants(raw_value):
     return _normalize_participants(parsed)
 
 
+def _username_to_corporate_email(username):
+    login = (username or '').strip().lower()
+    if not login:
+        return ''
+    return f'{login}@{MAIL_DOMAIN}'
+
+
+def _send_meeting_cancellation_email(recipient_email, booking_info):
+    if not recipient_email:
+        return False, 'Не указан email получателя'
+    meeting_date = booking_info.get('meeting_date') or ''
+    start_time = booking_info.get('start_time') or ''
+    end_time = booking_info.get('end_time') or ''
+    room_name = booking_info.get('room_name') or ''
+    purpose = booking_info.get('purpose') or ''
+    canceled_by = booking_info.get('canceled_by') or 'администратор'
+    sent_at_minsk = datetime.now(APP_TZ)
+    sent_at_text = sent_at_minsk.strftime('%d.%m.%Y %H:%M')
+    subject = f'[{sent_at_text} РБ] Отмена встречи: {purpose or "без темы"}'
+    body = (
+        'Здравствуйте.\n\n'
+        'Ваша встреча была отменена администратором.\n\n'
+        f'Дата: {meeting_date}\n'
+        f'Время: {start_time} - {end_time}\n'
+        f'Переговорка: {room_name}\n'
+        f'Тема: {purpose}\n'
+        f'Кто отменил: {canceled_by}\n'
+        f'Время отправки (РБ): {sent_at_text}\n\n'
+        'Сообщение отправлено автоматически.'
+    )
+    message = EmailMessage(policy=policy.SMTPUTF8)
+    message['Subject'] = str(Header(subject, 'utf-8'))
+    message['From'] = MAIL_SENDER
+    message['To'] = recipient_email
+    message['Date'] = format_datetime(sent_at_minsk)
+    # Принудительно отправляем тело в UTF-8 Base64 для стабильной кириллицы в разных клиентах.
+    message.set_content(body, subtype='plain', charset='utf-8', cte='base64')
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+            if SMTP_USE_TLS:
+                smtp.starttls()
+            if SMTP_USERNAME:
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(message)
+        return True, ''
+    except Exception as exc:
+        return False, str(exc)
+
+
 @app.route('/api/meeting-bookings')
 def get_meeting_bookings():
     if not session.get('logged_in'):
@@ -504,12 +567,32 @@ def delete_meeting_booking(booking_id):
                 UPDATE meeting_bookings
                 SET booking_status = 'canceled',
                     canceled_by = ?,
-                    canceled_at = CURRENT_TIMESTAMP,
+                    canceled_at = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            ''', (current_user, booking_id))
+            ''', (current_user, datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'), booking_id))
+            booking_info = conn.execute('''
+                SELECT b.meeting_date, b.start_time, b.end_time, b.purpose,
+                       r.name AS room_name, b.owner_username
+                FROM meeting_bookings b
+                JOIN meeting_rooms r ON r.id = b.room_id
+                WHERE b.id = ?
+            ''', (booking_id,)).fetchone()
             conn.commit()
-            return jsonify(success=True, status='canceled')
+            email_warning = ''
+            if booking_info:
+                owner_email = _username_to_corporate_email(booking_info['owner_username'])
+                ok, error_text = _send_meeting_cancellation_email(owner_email, {
+                    'meeting_date': booking_info['meeting_date'],
+                    'start_time': booking_info['start_time'],
+                    'end_time': booking_info['end_time'],
+                    'purpose': booking_info['purpose'],
+                    'room_name': booking_info['room_name'],
+                    'canceled_by': current_user
+                })
+                if not ok:
+                    email_warning = f'Не удалось отправить уведомление: {error_text}'
+            return jsonify(success=True, status='canceled', warning=email_warning)
         conn.execute('DELETE FROM meeting_bookings WHERE id = ?', (booking_id,))
         conn.commit()
         return jsonify(success=True, status='deleted')

@@ -594,7 +594,7 @@
             background: rgba(255, 255, 255, 0.96);
         }
         .fc-timegrid-slot {
-            height: 46px !important;
+            height: 44px !important;
         }
         .fc-timegrid-slot-label-cushion {
             color: #6783a6;
@@ -630,7 +630,7 @@
             margin-top: 4px;
         }
         .fc .fc-daygrid-event {
-            border-radius: 10px !important;
+            border-radius: 6px !important;
             padding: 3px 10px !important;
             border: 1px solid var(--event-border, #2f61ad) !important;
             background: var(--event-bg, linear-gradient(180deg, #2f67bc 0%, #2459a6 100%)) !important;
@@ -651,7 +651,7 @@
         }
         .fc-event {
             border: 1px solid var(--event-border, #2f61ad) !important;
-            border-radius: 10px !important;
+            border-radius: 6px !important;
             background: var(--event-bg, linear-gradient(180deg, #2f67bc 0%, #2459a6 100%)) !important;
             box-shadow: 0 3px 10px rgba(22, 63, 122, 0.2);
             cursor: pointer;
@@ -676,21 +676,46 @@
             font-weight: 500;
             white-space: normal;
             overflow-wrap: anywhere;
+            word-break: break-word;
+            hyphens: auto;
         }
         .fc .fc-event .booking-event-line strong {
             color: #ffffff;
             font-weight: 700;
         }
+        .fc .fc-event .booking-event-header {
+            display: grid;
+            gap: 2px;
+        }
+        .fc .fc-event .booking-event-hint {
+            font-size: 11px;
+            color: rgba(244, 250, 255, 0.95);
+            font-weight: 600;
+        }
+        .fc .fc-event .booking-event-details {
+            display: none;
+            margin-top: 2px;
+            border-top: 1px dashed rgba(240, 247, 255, 0.35);
+            padding-top: 3px;
+        }
+        .fc .fc-event.booking-event-expanded .booking-event-details {
+            display: grid;
+            gap: 1px;
+        }
+        .fc .fc-event .booking-event-details.booking-event-details-visible {
+            display: grid;
+            gap: 2px;
+        }
         .fc .fc-timegrid-event-harness {
             margin-inline: 0;
         }
         .fc .fc-timegrid-event {
-            min-height: 40px;
-            padding: 2px;
+            min-height: 28px;
+            padding: 0;
         }
         .fc .fc-event .fc-event-main {
             background: var(--event-inner-bg, rgba(255, 255, 255, 0.08));
-            border-radius: 8px;
+            border-radius: 4px;
             padding: 2px 4px;
             overflow-x: hidden;
             overflow-y: auto;
@@ -702,6 +727,39 @@
         }
         .fc .fc-timegrid-event .fc-event-main {
             max-height: 100%;
+            padding: 4px 6px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .fc .fc-timegrid-event .fc-event-main::-webkit-scrollbar {
+            width: 6px;
+        }
+        .fc .fc-timegrid-event .fc-event-main::-webkit-scrollbar-thumb {
+            background: rgba(235, 245, 255, 0.8);
+            border-radius: 999px;
+        }
+        .fc .fc-timegrid-event .fc-event-main::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .fc .fc-timegrid-event .booking-event-content {
+            font-size: 13px;
+            line-height: 1.35;
+            gap: 4px;
+        }
+        .fc .fc-timegrid-event .booking-event-header {
+            gap: 3px;
+        }
+        .fc .fc-timegrid-event .booking-event-line {
+            font-size: 13px;
+        }
+        .fc .fc-timegrid-event .booking-event-hint {
+            font-size: 11px;
+            color: rgba(239, 247, 255, 0.95);
+        }
+        .fc .fc-timegrid-event .booking-event-details {
+            margin-top: 3px;
+            padding-top: 4px;
+            gap: 2px;
         }
         .fc .fc-event:hover {
             filter: brightness(1.06);
@@ -830,6 +888,9 @@
             padding: 20px 24px;
         }
         .modal-body { padding: 24px; }
+        #infoModalText {
+            white-space: pre-line;
+        }
         #submitBtn {
             font-size: 15px;
             padding: 8px 16px;
@@ -1037,7 +1098,7 @@
                 </div>
             </div>
         </div>
-        <p class="hint-text">Кликните по событию в календаре для редактирования или удаления.</p>
+        <p class="hint-text">Нажмите на событие в календаре, чтобы развернуть или скрыть подробности.</p>
         <div class="planner-wrap">
             <div class="planner-header">
                 <h3 id="plannerTitle" class="planner-title">Календарь встреч</h3>
@@ -1180,15 +1241,19 @@
             slotMinTime: "06:00:00",
             slotMaxTime: "23:00:00",
             slotDuration: "00:30:00",
+            eventMinHeight: 36,
             expandRows: true,
             headerToolbar: false,
             eventClick: (info) => {
+                info.jsEvent.preventDefault();
                 if (plannerMode === "month") {
                     openDayView(info.event.startStr.slice(0, 10));
                     return;
                 }
-                const bookingId = info.event.extendedProps.bookingId;
-                if (bookingId) startEdit(bookingId);
+                const durationMinutes = getEventDurationMinutes(info.event);
+                if (durationMinutes > 0 && durationMinutes < 45) {
+                    showInfo(formatBookingDetailsForInfoModal(info.event), "Подробности встречи");
+                }
             },
             eventContent: (info) => {
                 const formatTime = (dateValue) => {
@@ -1215,13 +1280,20 @@
                         <div class="booking-event-line">${escapeHtml(ext.roomName || "")}</div>
                     `;
                 } else {
+                    const durationMinutes = getEventDurationMinutes(info.event);
+                    const isCompactEvent = durationMinutes > 0 && durationMinutes < 45;
                     wrap.innerHTML = `
-                        ${isCanceled ? `<div class="booking-event-line"><strong>ОТМЕНЕНА</strong></div>` : ""}
-                        <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
-                        <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
-                        <div class="booking-event-line">Переговорка: ${escapeHtml(ext.roomName || "")}</div>
-                        <div class="booking-event-line">Бронирует: ${escapeHtml(ext.bookedBy || "")}</div>
-                        <div class="booking-event-line">Участники: ${escapeHtml(participantsText)}</div>
+                        <div class="booking-event-header">
+                            ${isCanceled ? `<div class="booking-event-line"><strong>ОТМЕНЕНА</strong></div>` : ""}
+                            <div class="booking-event-line"><strong>${startText}${endText ? ` - ${endText}` : ""}</strong></div>
+                            <div class="booking-event-line"><strong>${escapeHtml(info.event.title || "")}</strong></div>
+                            ${isCompactEvent ? `<div class="booking-event-hint">Нажмите для деталей ℹ</div>` : ""}
+                        </div>
+                        <div class="booking-event-details ${isCompactEvent ? "" : "booking-event-details-visible"}">
+                            <div class="booking-event-line">Переговорка: ${escapeHtml(ext.roomName || "")}</div>
+                            <div class="booking-event-line">Бронирует: ${escapeHtml(ext.bookedBy || "")}</div>
+                            <div class="booking-event-line">Участники: ${escapeHtml(participantsText)}</div>
+                        </div>
                     `;
                 }
                 return { domNodes: [wrap] };
@@ -1233,6 +1305,14 @@
                 if (gradient) info.el.style.setProperty("--event-bg", gradient);
                 if (border) info.el.style.setProperty("--event-border", border);
                 if (innerBg) info.el.style.setProperty("--event-inner-bg", innerBg);
+                info.el.addEventListener("dblclick", () => {
+                    if (plannerMode === "month") {
+                        openDayView(info.event.startStr.slice(0, 10));
+                        return;
+                    }
+                    const bookingId = info.event.extendedProps.bookingId;
+                    if (bookingId) startEdit(bookingId);
+                });
             },
             dateClick: (info) => {
                 openDayView(info.dateStr.slice(0, 10));
@@ -1692,6 +1772,34 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
+    function getEventDurationMinutes(eventObj) {
+        if (!eventObj || !eventObj.start || !eventObj.end) return 0;
+        const ms = eventObj.end.getTime() - eventObj.start.getTime();
+        if (!Number.isFinite(ms) || ms <= 0) return 0;
+        return Math.round(ms / 60000);
+    }
+
+    function formatBookingDetailsForInfoModal(eventObj) {
+        const ext = (eventObj && eventObj.extendedProps) || {};
+        const participants = Array.isArray(ext.participants) ? ext.participants : [];
+        const participantsText = participants.length
+            ? participants.map((person) => person.name || person.login).filter(Boolean).join(", ")
+            : "не указаны";
+        const startText = eventObj.start
+            ? eventObj.start.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+            : "";
+        const endText = eventObj.end
+            ? eventObj.end.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+            : "";
+        return [
+            `Тема: ${eventObj.title || "без темы"}`,
+            `Время: ${startText}${endText ? ` - ${endText}` : ""}`,
+            `Переговорка: ${ext.roomName || "не указана"}`,
+            `Бронирует: ${ext.bookedBy || "не указано"}`,
+            `Участники: ${participantsText}`
+        ].join("\n");
+    }
+
     function isPastMeetingDateTime(isoDate, timeValue) {
         if (!isoDate || !timeValue) return false;
         const meetingStart = new Date(`${isoDate}T${timeValue}:00`);
@@ -1737,8 +1845,11 @@
         const confirmed = await showConfirm("Удалить выбранную бронь?", "Подтверждение удаления", "Удалить");
         if (!confirmed) return;
         try {
-            await requestJson(`/api/meeting-bookings/${id}`, { method: "DELETE" });
+            const result = await requestJson(`/api/meeting-bookings/${id}`, { method: "DELETE" });
             await loadBookings();
+            if (result && result.warning) {
+                showInfo(result.warning, "Уведомление");
+            }
         } catch (error) {
             showInfo(error.message, "Ошибка");
         }
@@ -1873,9 +1984,12 @@
         const confirmed = await showConfirm(actionText, "Подтверждение действия", actionLabel);
         if (!confirmed) return;
         try {
-            await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
+            const result = await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
             resetForm();
             await loadBookings();
+            if (result && result.warning) {
+                showInfo(result.warning, "Уведомление");
+            }
         } catch (error) {
             showInfo(error.message, "Ошибка");
         }
