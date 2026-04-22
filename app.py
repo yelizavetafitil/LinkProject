@@ -59,6 +59,7 @@ SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', '1') == '1'
 APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
+_ad_groups_cache = {}
 
 
 def normalize_ad_username(raw_username):
@@ -204,6 +205,29 @@ def get_user_ad_groups(conn, user_dn):
     return list(set(groups))
 
 
+def get_user_ad_groups_by_username(username):
+    login = normalize_ad_username(username)
+    if not login:
+        return []
+    cached = _ad_groups_cache.get(login)
+    if isinstance(cached, list):
+        return cached
+    try:
+        server = Server(LDAP_CONFIG['uri'], get_info=ALL, connect_timeout=5)
+        conn = Connection(server, user=LDAP_CONFIG['bind_dn'], password=LDAP_CONFIG['bind_password'], auto_bind=True)
+        search_filter = f"({LDAP_CONFIG['user_attr']}={login})"
+        conn.search(LDAP_CONFIG['base'], search_filter, SUBTREE, attributes=['distinguishedName'])
+        if not conn.entries:
+            _ad_groups_cache[login] = []
+            return []
+        user_dn = conn.entries[0].distinguishedName.value
+        groups = get_user_ad_groups(conn, user_dn)
+        _ad_groups_cache[login] = groups
+        return groups
+    except Exception:
+        return []
+
+
 def check_ldap_auth(username, password):
     try:
         server = Server(LDAP_CONFIG['uri'], get_info=ALL, connect_timeout=5)
@@ -221,7 +245,7 @@ def check_ldap_auth(username, password):
             display_name = str(user_entry.cn).strip()
         Connection(server, user=user_dn, password=password, auto_bind=True)
         session['display_name'] = display_name or username
-        session['ad_groups'] = get_user_ad_groups(conn, user_dn)
+        _ad_groups_cache[normalize_ad_username(username)] = get_user_ad_groups(conn, user_dn)
         session.permanent = True
         return True, ''
     except LDAPException as exc:
@@ -295,6 +319,9 @@ def meeting_rooms_page():
 
 @app.route('/logout')
 def logout():
+    login = normalize_ad_username(session.get('username') or '')
+    if login in _ad_groups_cache:
+        _ad_groups_cache.pop(login, None)
     session.clear()
     return redirect(url_for('login_page'))
 
@@ -839,7 +866,7 @@ def get_resources():
     if not session.get('logged_in'): return jsonify([]), 403
     u = session.get('username')
     search_query = request.args.get('search', '').strip().lower()
-    user_ad_groups = session.get('ad_groups', [])
+    user_ad_groups = get_user_ad_groups_by_username(u)
     conn = get_db_connection()
     try:
         rows = conn.execute('''
