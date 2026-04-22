@@ -8,6 +8,7 @@ from email.message import EmailMessage
 from email.utils import format_datetime
 from email.header import Header
 from email import policy
+from urllib.parse import urlparse
 from datetime import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
@@ -31,9 +32,11 @@ app = Flask(__name__)
 app.secret_key = 'enterprise_hub_production_v37'
 app.config.update(
     SESSION_COOKIE_NAME='enterprise_hub_session',
+    SESSION_COOKIE_PATH='/',
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
-    PERMANENT_SESSION_LIFETIME=timedelta(hours=12)
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
+    SESSION_REFRESH_EACH_REQUEST=False
 )
 
 LDAP_CONFIG = {
@@ -60,6 +63,23 @@ APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
 _ad_groups_cache = {}
+
+
+def normalize_resource_url(raw_url):
+    value = (raw_url or '').strip()
+    if not value:
+        return value
+    try:
+        parsed = urlparse(value)
+    except Exception:
+        return value
+    host = (parsed.hostname or '').lower()
+    if host in ('127.0.0.1', 'localhost', '::1'):
+        path = parsed.path or '/'
+        query = f'?{parsed.query}' if parsed.query else ''
+        fragment = f'#{parsed.fragment}' if parsed.fragment else ''
+        return f'{path}{query}{fragment}'
+    return value
 
 
 def normalize_ad_username(raw_username):
@@ -191,6 +211,12 @@ def init_db():
         ).fetchall()
         for row in existing_categories:
             conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', (row['category'],))
+        # Нормализуем внутренние URL ресурсов, чтобы проект корректно открывался на любом ПК.
+        resource_rows = conn.execute('SELECT id, url FROM resources').fetchall()
+        for row in resource_rows:
+            normalized_url = normalize_resource_url(row['url'])
+            if normalized_url != row['url']:
+                conn.execute('UPDATE resources SET url = ? WHERE id = ?', (normalized_url, row['id']))
         default_rooms = ['Переговорка 1', 'Переговорка 2', 'Конференц-зал']
         for room_name in default_rooms:
             conn.execute('INSERT OR IGNORE INTO meeting_rooms (name) VALUES (?)', (room_name,))
@@ -324,12 +350,6 @@ def logout():
         _ad_groups_cache.pop(login, None)
     session.clear()
     return redirect(url_for('login_page'))
-
-
-@app.before_request
-def refresh_session_lifetime():
-    if session.get('logged_in'):
-        session.permanent = True
 
 
 @app.route('/api/meeting-rooms')
@@ -889,6 +909,8 @@ def get_resources():
 
         if u in MASTER_ADMINS:
             admin_rows = [dict(row) for row in rows]
+            for row in admin_rows:
+                row['url'] = normalize_resource_url(row.get('url'))
             return jsonify([row for row in admin_rows if matches_search(row)])
 
         members_rows = conn.execute("SELECT group_id, username FROM group_members").fetchall()
@@ -902,6 +924,7 @@ def get_resources():
         for r in rows:
             g_ids = r['group_ids'].split(',') if r['group_ids'] else []
             row_dict = dict(r)
+            row_dict['url'] = normalize_resource_url(row_dict.get('url'))
             if not g_ids:
                 if matches_search(row_dict):
                     visible.append(row_dict)
@@ -922,7 +945,8 @@ def get_resources():
 @app.route('/add', methods=['POST'])
 def add_resource():
     if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
-    t, u = request.form.get('title'), request.form.get('url')
+    t = request.form.get('title')
+    u = normalize_resource_url(request.form.get('url'))
     c_existing = (request.form.get('category_existing') or '').strip()
     if c_existing == '__new__':
         c_existing = ''
@@ -949,7 +973,8 @@ def add_resource():
 @app.route('/edit/<int:res_id>', methods=['POST'])
 def edit_resource(res_id):
     if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
-    t, u = request.form.get('title'), request.form.get('url')
+    t = request.form.get('title')
+    u = normalize_resource_url(request.form.get('url'))
     c_existing = (request.form.get('category_existing') or '').strip()
     if c_existing == '__new__':
         c_existing = ''

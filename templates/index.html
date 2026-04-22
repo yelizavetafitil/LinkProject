@@ -550,10 +550,18 @@
     const isAdmin = {{ 'true' if is_admin else 'false' }};
     let allResources = [];
     let allCategories = [];
+    const DEFAULT_RESOURCE_ICON = "data:image/svg+xml;utf8," + encodeURIComponent(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23256ec8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='4' ry='4' fill='%23eef5ff'/><path d='M8 12h8'/><path d='M8 8h8'/><path d='M8 16h5'/></svg>"
+    );
 
     function getIcon(url) {
-        try { return `https://www.google.com/s2/favicons?sz=64&domain_url=${new URL(url).hostname}`; }
-        catch { return 'https://cdn-icons-png.flaticon.com/512/1243/1243924.png'; }
+        try {
+            const parsed = new URL(url, window.location.origin);
+            if (parsed.origin === window.location.origin) return DEFAULT_RESOURCE_ICON;
+            return `https://www.google.com/s2/favicons?sz=64&domain_url=${parsed.hostname}`;
+        } catch {
+            return DEFAULT_RESOURCE_ICON;
+        }
     }
 
     async function loadResources() {
@@ -572,7 +580,7 @@
                             ${isAdmin ? `<div class="admin-hud"><button type="button" class="hud-btn" onclick="openEdit(${item.id})"><i data-lucide="settings" size="13"></i></button><button type="button" class="hud-btn btn-delete" onclick="delItem(${item.id})"><i data-lucide="trash-2" size="13"></i></button></div>` : ''}
                             <a href="${item.url}" target="_blank" class="card-link">
                                 <div class="icon-container">
-                                    <img src="${getIcon(item.url)}" class="tile-icon" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1243/1243924.png'">
+                                    <img src="${getIcon(item.url)}" class="tile-icon" onerror="this.src=DEFAULT_RESOURCE_ICON">
                                 </div>
                                 <div class="card-body">
                                     <h6 class="card-title">${item.title}</h6>
