@@ -1036,7 +1036,8 @@
                 <p class="field-hint">Время можно выбрать из списка или ввести с клавиатуры в формате ЧЧ:ММ</p>
                 <div class="form-actions">
                     <button id="submitBtn" class="btn btn-primary btn-sm">Сохранить бронь</button>
-                    <button id="deleteBtn" type="button" class="btn btn-outline-danger btn-sm d-none">Удалить бронь</button>
+                    <button id="deleteBtn" type="button" class="btn btn-outline-danger btn-sm d-none">Отменить бронь</button>
+                    <button id="historyBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">История изменений</button>
                     <button id="cancelEditBtn" type="button" class="btn btn-outline-secondary btn-sm d-none">Отменить редактирование</button>
                 </div>
             </form>
@@ -1047,7 +1048,7 @@
                     <li>Нельзя занять одну переговорку на пересекающееся время.</li>
                     <li>Нельзя создавать или редактировать бронь на прошедшие дату и время.</li>
                     <li>Отмененные администратором встречи остаются в календаре и отмечаются оранжевым.</li>
-                    <li>Удалять можно только свои брони, редактирование недоступно. Администратор может редактировать и удалять любые брони.</li>
+                    <li>Владелец может редактировать и отменять только свою бронь. Администратор может редактировать и отменять любые брони.</li>
                 </ul>
             </div>
         </section>
@@ -1142,7 +1143,26 @@
                 <p id="infoModalText" class="mb-0 text-secondary">Операция выполнена.</p>
             </div>
             <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary d-none" id="infoModalActionBtn">Открыть бронь</button>
+                <button type="button" class="btn btn-outline-secondary d-none" id="infoModalHistoryBtn">История изменений</button>
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Понятно</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="historyModalTitle">История изменений брони</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyModalBody" class="text-secondary">Загрузка...</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Закрыть</button>
             </div>
         </div>
     </div>
@@ -1152,7 +1172,7 @@
     const isAdmin = {{ 'true' if is_admin else 'false' }};
     const currentUser = "{{ user_login }}";
     const currentUserDisplay = "{{ user_display }}";
-    const isSuperAdmin = currentUser === "oc1";
+    const canAdminManageBookings = isAdmin;
     let rooms = [];
     let bookings = [];
     let editId = null;
@@ -1161,6 +1181,7 @@
     const formTitle = document.getElementById("formTitle");
     const submitBtn = document.getElementById("submitBtn");
     const deleteBtn = document.getElementById("deleteBtn");
+    const historyBtn = document.getElementById("historyBtn");
     const cancelEditBtn = document.getElementById("cancelEditBtn");
     const personInput = document.getElementById("personInput");
     const purposeInput = document.getElementById("purposeInput");
@@ -1189,7 +1210,10 @@
     let plannerCalendar;
     let confirmActionModal;
     let infoModal;
+    let historyModal;
     let confirmResolver = null;
+    let infoActionHandler = null;
+    let infoHistoryHandler = null;
     let bookingFormCollapse;
     let roomsCollapse;
     let plannerMode = "month";
@@ -1207,8 +1231,12 @@
         const confirmEl = document.getElementById("confirmActionModal");
         const confirmOk = document.getElementById("confirmActionOk");
         const infoEl = document.getElementById("infoModal");
+        const infoActionBtn = document.getElementById("infoModalActionBtn");
+        const infoHistoryBtn = document.getElementById("infoModalHistoryBtn");
+        const historyEl = document.getElementById("historyModal");
         confirmActionModal = new bootstrap.Modal(confirmEl);
         infoModal = new bootstrap.Modal(infoEl);
+        historyModal = new bootstrap.Modal(historyEl);
         confirmOk.addEventListener("click", () => {
             if (confirmResolver) {
                 confirmResolver(true);
@@ -1221,6 +1249,28 @@
                 confirmResolver(false);
                 confirmResolver = null;
             }
+        });
+        infoActionBtn.addEventListener("click", () => {
+            const callback = infoActionHandler;
+            infoActionHandler = null;
+            infoModal.hide();
+            if (typeof callback === "function") {
+                callback();
+            }
+        });
+        infoHistoryBtn.addEventListener("click", () => {
+            const callback = infoHistoryHandler;
+            infoHistoryHandler = null;
+            infoModal.hide();
+            if (typeof callback === "function") {
+                callback();
+            }
+        });
+        infoEl.addEventListener("hidden.bs.modal", () => {
+            infoActionHandler = null;
+            infoHistoryHandler = null;
+            infoActionBtn.classList.add("d-none");
+            infoHistoryBtn.classList.add("d-none");
         });
     }
 
@@ -1250,9 +1300,32 @@
                     openDayView(info.event.startStr.slice(0, 10));
                     return;
                 }
+                const bookingId = info.event.extendedProps.bookingId;
+                if (!bookingId) return;
                 const durationMinutes = getEventDurationMinutes(info.event);
                 if (durationMinutes > 0 && durationMinutes < 45) {
-                    showInfo(formatBookingDetailsForInfoModal(info.event), "Подробности встречи");
+                    const canOpenBooking = canOpenBookingById(bookingId);
+                    showInfo(
+                        formatBookingDetailsForInfoModal(info.event),
+                        "Подробности встречи",
+                        canOpenBooking ? "Открыть бронь" : "",
+                        canOpenBooking ? () => startEdit(bookingId) : null,
+                        "История изменений",
+                        () => openBookingHistory(bookingId)
+                    );
+                    return;
+                }
+                if (canOpenBookingById(bookingId)) {
+                    startEdit(bookingId);
+                } else {
+                    showInfo(
+                        formatBookingDetailsForInfoModal(info.event),
+                        "Подробности встречи",
+                        "",
+                        null,
+                        "История изменений",
+                        () => openBookingHistory(bookingId)
+                    );
                 }
             },
             eventContent: (info) => {
@@ -1394,9 +1467,34 @@
         });
     }
 
-    function showInfo(message, title = "Сообщение") {
+    function showInfo(
+        message,
+        title = "Сообщение",
+        actionText = "",
+        onAction = null,
+        historyText = "",
+        onHistory = null
+    ) {
+        const actionBtn = document.getElementById("infoModalActionBtn");
+        const historyBtnEl = document.getElementById("infoModalHistoryBtn");
         document.getElementById("infoModalTitle").textContent = title;
         document.getElementById("infoModalText").textContent = message;
+        if (actionText && typeof onAction === "function") {
+            actionBtn.textContent = actionText;
+            actionBtn.classList.remove("d-none");
+            infoActionHandler = onAction;
+        } else {
+            actionBtn.classList.add("d-none");
+            infoActionHandler = null;
+        }
+        if (historyText && typeof onHistory === "function") {
+            historyBtnEl.textContent = historyText;
+            historyBtnEl.classList.remove("d-none");
+            infoHistoryHandler = onHistory;
+        } else {
+            historyBtnEl.classList.add("d-none");
+            infoHistoryHandler = null;
+        }
         infoModal.show();
     }
 
@@ -1420,7 +1518,11 @@
     }
 
     async function requestJson(url, options = {}) {
-        const response = await fetch(url, options);
+        const method = String(options.method || "GET").toUpperCase();
+        const response = await fetch(url, {
+            ...options,
+            cache: method === "GET" ? "no-store" : "no-cache"
+        });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(data.error || "Ошибка запроса");
@@ -1516,7 +1618,7 @@
             });
             plannerCalendar.addEventSource(events);
             if (plannerMode === "day") {
-                const target = filterDateIso || plannerCalendar.getDate().toISOString().slice(0, 10);
+                const target = filterDateIso || formatDateToIsoLocal(plannerCalendar.getDate());
                 plannerCalendar.changeView("timeGridDay", target);
             } else {
                 plannerCalendar.changeView("dayGridMonth");
@@ -1541,6 +1643,7 @@
         formTitle.textContent = "Новая бронь";
         submitBtn.textContent = "Сохранить бронь";
         deleteBtn.classList.add("d-none");
+        historyBtn.classList.add("d-none");
         cancelEditBtn.classList.add("d-none");
         setFormEditable(true);
     }
@@ -1772,11 +1875,137 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
+    function formatDateToIsoLocal(dateObj) {
+        if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return "";
+        const dd = String(dateObj.getDate()).padStart(2, "0");
+        const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const yyyy = dateObj.getFullYear();
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
     function getEventDurationMinutes(eventObj) {
         if (!eventObj || !eventObj.start || !eventObj.end) return 0;
         const ms = eventObj.end.getTime() - eventObj.start.getTime();
         if (!Number.isFinite(ms) || ms <= 0) return 0;
         return Math.round(ms / 60000);
+    }
+
+    function canOpenBookingById(bookingId) {
+        const booking = bookings.find((item) => item.id === bookingId);
+        if (!booking || booking.booking_status === "canceled") return false;
+        return isAdmin || booking.owner_username === currentUser;
+    }
+
+    function formatHistoryAction(action) {
+        if (action === "created") return "Создано";
+        if (action === "updated") return "Изменено";
+        if (action === "canceled") return "Отменено";
+        return action || "Событие";
+    }
+
+    function formatHistoryWhen(value) {
+        if (!value) return "-";
+        const candidate = String(value).replace(" ", "T");
+        const dateObj = new Date(candidate);
+        if (Number.isNaN(dateObj.getTime())) return String(value);
+        return dateObj.toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function formatHistoryStatus(status) {
+        if (status === "active") return "Активна";
+        if (status === "canceled") return "Отменена";
+        return status || "-";
+    }
+
+    function formatHistoryParticipants(state) {
+        const participants = Array.isArray(state && state.participants)
+            ? state.participants.map((p) => p.name || p.login).filter(Boolean)
+            : [];
+        return participants.length ? participants.join(", ") : "не указаны";
+    }
+
+    function normalizeHistoryState(state) {
+        const source = (state && typeof state === "object") ? state : {};
+        return {
+            purpose: source.purpose || "без темы",
+            meeting_date: source.meeting_date || "-",
+            meeting_time: `${source.start_time || "-"} - ${source.end_time || "-"}`,
+            room_name: source.room_name || "-",
+            booked_by: source.booked_by || "-",
+            participants: formatHistoryParticipants(source),
+            booking_status: formatHistoryStatus(source.booking_status || "active")
+        };
+    }
+
+    function buildHistorySummary(action, details) {
+        const beforeRaw = details && details.before ? details.before : null;
+        const afterRaw = details && details.after ? details.after : null;
+        const before = normalizeHistoryState(beforeRaw);
+        const after = normalizeHistoryState(afterRaw);
+
+        if (action === "created") {
+            return [
+                `Создана бронь: ${after.purpose}`,
+                `Дата: ${after.meeting_date}`,
+                `Время: ${after.meeting_time}`,
+                `Переговорка: ${after.room_name}`,
+                `Участники: ${after.participants}`
+            ];
+        }
+        if (action === "canceled") {
+            return [`Статус: ${before.booking_status} -> ${after.booking_status}`];
+        }
+        if (action === "updated") {
+            const labels = {
+                purpose: "Тема",
+                meeting_date: "Дата",
+                meeting_time: "Время",
+                room_name: "Переговорка",
+                participants: "Участники",
+                booking_status: "Статус"
+            };
+            const changedLines = Object.keys(labels)
+                .filter((key) => before[key] !== after[key])
+                .map((key) => `${labels[key]}: ${before[key]} -> ${after[key]}`);
+            return changedLines.length ? changedLines : ["Изменений в полях не зафиксировано."];
+        }
+        return ["Без деталей"];
+    }
+
+    async function openBookingHistory(bookingId) {
+        if (!bookingId) return;
+        const body = document.getElementById("historyModalBody");
+        const title = document.getElementById("historyModalTitle");
+        title.textContent = "История изменений брони";
+        body.textContent = "Загрузка...";
+        historyModal.show();
+        try {
+            const history = await requestJson(`/api/meeting-bookings/${bookingId}/history`);
+            if (!Array.isArray(history) || history.length === 0) {
+                body.textContent = "История изменений пока отсутствует.";
+                return;
+            }
+            body.innerHTML = history.map((entry) => {
+                const details = entry.details || {};
+                const summaryLines = buildHistorySummary(entry.action, details);
+                const summaryText = summaryLines.join("\n");
+                return `
+                    <div class="border rounded p-2 mb-2">
+                        <div class="fw-bold text-dark">${escapeHtml(formatHistoryAction(entry.action))}</div>
+                        <div class="small text-muted">Кто: ${escapeHtml(entry.changed_by || "-")} | Когда: ${escapeHtml(formatHistoryWhen(entry.changed_at))}</div>
+                        <pre class="mb-0 mt-2" style="white-space: pre-wrap; font-size: 12px;">${escapeHtml(summaryText || "Без деталей")}</pre>
+                    </div>
+                `;
+            }).join("");
+        } catch (error) {
+            body.textContent = error.message || "Не удалось загрузить историю.";
+        }
     }
 
     function formatBookingDetailsForInfoModal(eventObj) {
@@ -1842,14 +2071,12 @@
     };
 
     window.removeBooking = async (id) => {
-        const confirmed = await showConfirm("Удалить выбранную бронь?", "Подтверждение удаления", "Удалить");
+        const confirmed = await showConfirm("Отменить выбранную бронь?", "Подтверждение действия", "Отменить");
         if (!confirmed) return;
         try {
-            const result = await requestJson(`/api/meeting-bookings/${id}`, { method: "DELETE" });
+            await requestJson(`/api/meeting-bookings/${id}`, { method: "DELETE" });
             await loadBookings();
-            if (result && result.warning) {
-                showInfo(result.warning, "Уведомление");
-            }
+            showInfo("Бронь успешно отменена.", "Готово");
         } catch (error) {
             showInfo(error.message, "Ошибка");
         }
@@ -1859,16 +2086,23 @@
         const booking = bookings.find((b) => b.id === id);
         if (!booking) return;
         if (booking.booking_status === "canceled") {
-            showInfo("Эта встреча уже отменена администратором.", "Отмененная бронь");
+            showInfo("Эта встреча уже отменена.", "Отмененная бронь");
+            return;
+        }
+        const canEdit = canAdminManageBookings || booking.owner_username === currentUser;
+        if (!canEdit) {
+            showInfo("Можно редактировать или отменять только свои брони.", "Доступ ограничен", "", null, "История изменений", () => openBookingHistory(id));
             return;
         }
         bookingFormCollapse.show();
-        const canEdit = isSuperAdmin;
+        // Каждый раз при выборе брони возвращаем пользователя к форме редактирования.
+        bookingFormCollapseEl.scrollIntoView({ behavior: "smooth", block: "start" });
         editId = id;
-        formTitle.textContent = canEdit ? "Редактирование брони" : "Удаление своей брони";
+        formTitle.textContent = "Редактирование брони";
         submitBtn.textContent = "Сохранить изменения";
         deleteBtn.classList.remove("d-none");
-        deleteBtn.textContent = canEdit ? "Отменить бронь" : "Удалить бронь";
+        historyBtn.classList.remove("d-none");
+        deleteBtn.textContent = "Отменить бронь";
         cancelEditBtn.classList.remove("d-none");
         setFormEditable(canEdit);
         document.getElementById("personInput").value = booking.booked_by;
@@ -1905,6 +2139,7 @@
             return;
         }
         try {
+            const isEditing = Boolean(editId);
             if (editId) {
                 await requestJson(`/api/meeting-bookings/${editId}`, {
                     method: "PUT",
@@ -1920,6 +2155,12 @@
             }
             resetForm();
             await loadBookings();
+            if (isEditing) {
+                showInfo("Изменения брони успешно сохранены.", "Готово");
+            } else {
+                showInfo("Бронь успешно создана.", "Готово");
+                bookingFormCollapse.hide();
+            }
         } catch (error) {
             showInfo(error.message, "Ошибка");
         }
@@ -1977,22 +2218,22 @@
     });
     deleteBtn.addEventListener("click", async () => {
         if (!editId) return;
-        const actionLabel = isSuperAdmin ? "Отменить" : "Удалить";
-        const actionText = isSuperAdmin
-            ? "Отменить выбранную бронь? Она останется в календаре как отмененная."
-            : "Удалить выбранную бронь?";
+        const actionLabel = "Отменить";
+        const actionText = "Отменить выбранную бронь? Она останется в календаре как отмененная.";
         const confirmed = await showConfirm(actionText, "Подтверждение действия", actionLabel);
         if (!confirmed) return;
         try {
-            const result = await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
+            await requestJson(`/api/meeting-bookings/${editId}`, { method: "DELETE" });
             resetForm();
             await loadBookings();
-            if (result && result.warning) {
-                showInfo(result.warning, "Уведомление");
-            }
+            showInfo("Бронь успешно отменена.", "Готово");
         } catch (error) {
             showInfo(error.message, "Ошибка");
         }
+    });
+    historyBtn.addEventListener("click", () => {
+        if (!editId) return;
+        openBookingHistory(editId);
     });
     cancelEditBtn.addEventListener("click", resetForm);
 

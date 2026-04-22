@@ -24,6 +24,7 @@ if not hasattr(collections, 'Sequence'):
     collections.Sequence = collections.abc.Sequence
 
 from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.core.exceptions import LDAPException
 
 app = Flask(__name__)
 app.secret_key = 'enterprise_hub_production_v37'
@@ -51,6 +52,17 @@ SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', '1') == '1'
 APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
+
+
+def normalize_ad_username(raw_username):
+    username = (raw_username or '').strip().lower()
+    if not username:
+        return ''
+    if '\\' in username:
+        username = username.split('\\')[-1].strip()
+    if '@' in username:
+        username = username.split('@')[0].strip()
+    return username
 
 
 def get_db_connection():
@@ -144,6 +156,16 @@ def init_db():
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(room_id) REFERENCES meeting_rooms(id)
             )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_booking_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                booking_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                changed_by TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                details_json TEXT NOT NULL,
+                FOREIGN KEY(booking_id) REFERENCES meeting_bookings(id)
+            )''')
         booking_columns = conn.execute("PRAGMA table_info(meeting_bookings)").fetchall()
         booking_column_names = {row['name'] for row in booking_columns}
         if 'participants_json' not in booking_column_names:
@@ -181,7 +203,8 @@ def check_ldap_auth(username, password):
         conn = Connection(server, user=LDAP_CONFIG['bind_dn'], password=LDAP_CONFIG['bind_password'], auto_bind=True)
         search_filter = f"({LDAP_CONFIG['user_attr']}={username})"
         conn.search(LDAP_CONFIG['base'], search_filter, SUBTREE, attributes=['distinguishedName', 'displayName', 'cn'])
-        if not conn.entries: return False
+        if not conn.entries:
+            return False, 'Пользователь не найден в AD'
         user_entry = conn.entries[0]
         user_dn = user_entry.distinguishedName.value
         display_name = ''
@@ -189,12 +212,16 @@ def check_ldap_auth(username, password):
             display_name = str(user_entry.displayName).strip()
         if not display_name and user_entry.cn:
             display_name = str(user_entry.cn).strip()
-        user_conn = Connection(server, user=user_dn, password=password, auto_bind=True)
+        Connection(server, user=user_dn, password=password, auto_bind=True)
         session['display_name'] = display_name or username
         session['ad_groups'] = get_user_ad_groups(conn, user_dn)
-        return True
-    except:
-        return False
+        return True, ''
+    except LDAPException as exc:
+        app.logger.warning('LDAP auth failed for "%s": %s', username, exc)
+        return False, 'Неверный логин/пароль AD или учетная запись недоступна'
+    except Exception as exc:
+        app.logger.exception('Unexpected auth error for "%s": %s', username, exc)
+        return False, 'Временная ошибка LDAP. Попробуйте позже'
 
 
 @app.route('/')
@@ -210,12 +237,16 @@ def login_page():
         if session.get('logged_in'): return redirect(url_for('index'))
         return render_template('login.html')
     data = request.json
-    u, p = data.get('username', '').strip().lower(), data.get('password', '')
-    if check_ldap_auth(u, p):
+    u = normalize_ad_username(data.get('username', ''))
+    p = data.get('password', '')
+    if not u or not p:
+        return jsonify(success=False, error='Введите логин и пароль'), 400
+    ok, auth_error = check_ldap_auth(u, p)
+    if ok:
         session['logged_in'] = True
         session['username'] = u
         return jsonify(success=True)
-    return jsonify(success=False), 401
+    return jsonify(success=False, error=auth_error or 'Ошибка авторизации AD'), 401
 
 
 @app.route('/manage')
@@ -372,6 +403,32 @@ def _decode_participants(raw_value):
     return _normalize_participants(parsed)
 
 
+def _serialize_booking_state(booking_row):
+    if not booking_row:
+        return {}
+    item = dict(booking_row)
+    item['participants'] = _decode_participants(item.get('participants_json'))
+    item.pop('participants_json', None)
+    return item
+
+
+def _log_booking_history(conn, booking_id, action, changed_by, details_payload):
+    safe_details = json.dumps(details_payload or {}, ensure_ascii=False)
+    conn.execute(
+        '''
+        INSERT INTO meeting_booking_history (booking_id, action, changed_by, changed_at, details_json)
+        VALUES (?, ?, ?, ?, ?)
+        ''',
+        (
+            booking_id,
+            action,
+            (changed_by or '').strip().lower(),
+            datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'),
+            safe_details
+        )
+    )
+
+
 def _username_to_corporate_email(username):
     login = (username or '').strip().lower()
     if not login:
@@ -487,6 +544,19 @@ def create_meeting_booking():
             payload['room_id'], booked_by, payload['purpose'], json.dumps(payload['participants'], ensure_ascii=False),
             payload['meeting_date'], payload['start_time'], payload['end_time'], session.get('username')
         ))
+        booking_id = conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
+        created_row = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                b.booking_status, b.canceled_by, b.canceled_at, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
+        _log_booking_history(conn, booking_id, 'created', session.get('username'), {
+            'after': _serialize_booking_state(created_row)
+        })
         conn.commit()
         return jsonify(success=True)
     finally:
@@ -517,17 +587,26 @@ def update_meeting_booking(booking_id):
         return jsonify(success=False, error='Нельзя сохранять бронь на прошедшие дату и время'), 400
     conn = get_db_connection()
     try:
-        booking = conn.execute(
-            'SELECT owner_username, COALESCE(booking_status, "active") AS booking_status FROM meeting_bookings WHERE id = ?',
-            (booking_id,)
-        ).fetchone()
+        booking = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                COALESCE(b.booking_status, 'active') AS booking_status,
+                b.canceled_by, b.canceled_at, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
         if not booking:
             return jsonify(success=False, error='Бронь не найдена'), 404
         if booking['booking_status'] == 'canceled':
             return jsonify(success=False, error='Отмененную бронь редактировать нельзя'), 409
         current_user = session.get('username')
-        if current_user != 'oc1':
-            return jsonify(success=False, error='Редактирование доступно только администратору oc1'), 403
+        if current_user not in MASTER_ADMINS and booking['owner_username'] != current_user:
+            return jsonify(success=False, error='Редактировать можно только свои брони'), 403
+        room_exists = conn.execute('SELECT 1 FROM meeting_rooms WHERE id = ?', (payload['room_id'],)).fetchone()
+        if not room_exists:
+            return jsonify(success=False, error='Выбранная переговорка не найдена'), 404
         if _meeting_has_conflict(conn, payload, booking_id=booking_id):
             return jsonify(success=False, error='На выбранное время переговорка уже занята'), 409
         conn.execute('''
@@ -539,6 +618,20 @@ def update_meeting_booking(booking_id):
             payload['room_id'], payload['purpose'], json.dumps(payload['participants'], ensure_ascii=False),
             payload['meeting_date'], payload['start_time'], payload['end_time'], booking_id
         ))
+        updated_row = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                COALESCE(b.booking_status, 'active') AS booking_status,
+                b.canceled_by, b.canceled_at, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
+        _log_booking_history(conn, booking_id, 'updated', current_user, {
+            'before': _serialize_booking_state(booking),
+            'after': _serialize_booking_state(updated_row)
+        })
         conn.commit()
         return jsonify(success=True)
     finally:
@@ -551,51 +644,96 @@ def delete_meeting_booking(booking_id):
         return jsonify(success=False), 403
     conn = get_db_connection()
     try:
-        booking = conn.execute(
-            'SELECT owner_username, COALESCE(booking_status, "active") AS booking_status FROM meeting_bookings WHERE id = ?',
-            (booking_id,)
-        ).fetchone()
+        booking = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                COALESCE(b.booking_status, 'active') AS booking_status,
+                b.canceled_by, b.canceled_at, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
         if not booking:
             return jsonify(success=False, error='Бронь не найдена'), 404
         current_user = session.get('username')
-        if current_user != 'oc1' and booking['owner_username'] != current_user:
-            return jsonify(success=False, error='Можно удалять только свои брони'), 403
-        if current_user == 'oc1':
-            if booking['booking_status'] == 'canceled':
-                return jsonify(success=False, error='Бронь уже отменена'), 409
-            conn.execute('''
-                UPDATE meeting_bookings
-                SET booking_status = 'canceled',
-                    canceled_by = ?,
-                    canceled_at = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (current_user, datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'), booking_id))
-            booking_info = conn.execute('''
-                SELECT b.meeting_date, b.start_time, b.end_time, b.purpose,
-                       r.name AS room_name, b.owner_username
-                FROM meeting_bookings b
-                JOIN meeting_rooms r ON r.id = b.room_id
-                WHERE b.id = ?
-            ''', (booking_id,)).fetchone()
-            conn.commit()
-            email_warning = ''
-            if booking_info:
-                owner_email = _username_to_corporate_email(booking_info['owner_username'])
-                ok, error_text = _send_meeting_cancellation_email(owner_email, {
-                    'meeting_date': booking_info['meeting_date'],
-                    'start_time': booking_info['start_time'],
-                    'end_time': booking_info['end_time'],
-                    'purpose': booking_info['purpose'],
-                    'room_name': booking_info['room_name'],
-                    'canceled_by': current_user
-                })
-                if not ok:
-                    email_warning = f'Не удалось отправить уведомление: {error_text}'
-            return jsonify(success=True, status='canceled', warning=email_warning)
-        conn.execute('DELETE FROM meeting_bookings WHERE id = ?', (booking_id,))
+        if current_user not in MASTER_ADMINS and booking['owner_username'] != current_user:
+            return jsonify(success=False, error='Можно отменять только свои брони'), 403
+        if booking['booking_status'] == 'canceled':
+            return jsonify(success=False, error='Бронь уже отменена'), 409
+        conn.execute('''
+            UPDATE meeting_bookings
+            SET booking_status = 'canceled',
+                canceled_by = ?,
+                canceled_at = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (current_user, datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'), booking_id))
+        booking_info = conn.execute('''
+            SELECT b.meeting_date, b.start_time, b.end_time, b.purpose,
+                   r.name AS room_name, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
+        canceled_row = conn.execute('''
+            SELECT
+                b.id, b.room_id, r.name AS room_name, b.booked_by, b.purpose,
+                b.participants_json, b.meeting_date, b.start_time, b.end_time,
+                COALESCE(b.booking_status, 'active') AS booking_status,
+                b.canceled_by, b.canceled_at, b.owner_username
+            FROM meeting_bookings b
+            JOIN meeting_rooms r ON r.id = b.room_id
+            WHERE b.id = ?
+        ''', (booking_id,)).fetchone()
+        _log_booking_history(conn, booking_id, 'canceled', current_user, {
+            'before': _serialize_booking_state(booking),
+            'after': _serialize_booking_state(canceled_row)
+        })
         conn.commit()
-        return jsonify(success=True, status='deleted')
+        email_warning = ''
+        if booking_info:
+            owner_email = _username_to_corporate_email(booking_info['owner_username'])
+            ok, error_text = _send_meeting_cancellation_email(owner_email, {
+                'meeting_date': booking_info['meeting_date'],
+                'start_time': booking_info['start_time'],
+                'end_time': booking_info['end_time'],
+                'purpose': booking_info['purpose'],
+                'room_name': booking_info['room_name'],
+                'canceled_by': current_user
+            })
+            if not ok:
+                email_warning = f'Не удалось отправить уведомление: {error_text}'
+        return jsonify(success=True, status='canceled', warning=email_warning)
+    finally:
+        conn.close()
+
+
+@app.route('/api/meeting-bookings/<int:booking_id>/history')
+def get_meeting_booking_history(booking_id):
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        booking_exists = conn.execute('SELECT 1 FROM meeting_bookings WHERE id = ?', (booking_id,)).fetchone()
+        if not booking_exists:
+            return jsonify([]), 404
+        rows = conn.execute('''
+            SELECT id, booking_id, action, changed_by, changed_at, details_json
+            FROM meeting_booking_history
+            WHERE booking_id = ?
+            ORDER BY id DESC
+        ''', (booking_id,)).fetchall()
+        data = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item['details'] = json.loads(item.get('details_json') or '{}')
+            except (TypeError, json.JSONDecodeError):
+                item['details'] = {}
+            item.pop('details_json', None)
+            data.append(item)
+        return jsonify(data)
     finally:
         conn.close()
 

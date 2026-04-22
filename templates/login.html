@@ -116,10 +116,32 @@
 </div>
 <script>
     async function login() {
-        const u = document.getElementById('u').value;
-        const p = document.getElementById('p').value;
-        const r = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})});
-        if(r.ok) location.href='/'; else document.getElementById('err').style.display='block';
+        const usernameInput = document.getElementById('u');
+        const passwordInput = document.getElementById('p');
+        const err = document.getElementById('err');
+        const loginBtn = document.querySelector('.btn-login');
+        const u = usernameInput.value;
+        const p = passwordInput.value;
+        err.style.display = 'none';
+        err.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Проверка...';
+        try {
+            const r = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})});
+            const data = await r.json().catch(() => ({}));
+            if (r.ok && data.success) {
+                location.href = '/';
+                return;
+            }
+            err.textContent = data.error || 'Не удалось войти. Проверьте данные AD.';
+            err.style.display = 'block';
+        } catch (_) {
+            err.textContent = 'Ошибка сети или сервера. Повторите попытку.';
+            err.style.display = 'block';
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Войти';
+        }
     }
     document.addEventListener('keypress', (e) => { if (e.key === 'Enter') login(); });
 </script>
