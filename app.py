@@ -9,6 +9,7 @@ from email.utils import format_datetime
 from email.header import Header
 from email import policy
 from datetime import datetime
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
@@ -28,6 +29,12 @@ from ldap3.core.exceptions import LDAPException
 
 app = Flask(__name__)
 app.secret_key = 'enterprise_hub_production_v37'
+app.config.update(
+    SESSION_COOKIE_NAME='enterprise_hub_session',
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12)
+)
 
 LDAP_CONFIG = {
     'uri': "ldap://192.168.0.4",
@@ -215,6 +222,7 @@ def check_ldap_auth(username, password):
         Connection(server, user=user_dn, password=password, auto_bind=True)
         session['display_name'] = display_name or username
         session['ad_groups'] = get_user_ad_groups(conn, user_dn)
+        session.permanent = True
         return True, ''
     except LDAPException as exc:
         app.logger.warning('LDAP auth failed for "%s": %s', username, exc)
@@ -289,6 +297,12 @@ def meeting_rooms_page():
 def logout():
     session.clear()
     return redirect(url_for('login_page'))
+
+
+@app.before_request
+def refresh_session_lifetime():
+    if session.get('logged_in'):
+        session.permanent = True
 
 
 @app.route('/api/meeting-rooms')
@@ -692,7 +706,12 @@ def delete_meeting_booking(booking_id):
         })
         conn.commit()
         email_warning = ''
-        if booking_info:
+        should_notify_owner = (
+            booking_info is not None and
+            current_user in MASTER_ADMINS and
+            booking_info['owner_username'] != current_user
+        )
+        if should_notify_owner:
             owner_email = _username_to_corporate_email(booking_info['owner_username'])
             ok, error_text = _send_meeting_cancellation_email(owner_email, {
                 'meeting_date': booking_info['meeting_date'],
