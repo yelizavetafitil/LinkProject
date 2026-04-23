@@ -3,6 +3,9 @@ import os
 import collections
 import re
 import json
+import time
+import threading
+import calendar
 import smtplib
 from email.message import EmailMessage
 from email.utils import format_datetime
@@ -14,6 +17,11 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
+import openpyxl
+try:
+    import xlrd
+except Exception:
+    xlrd = None
 
 # --- ЗАПЛАТКА ДЛЯ LDAP3 ---
 if not hasattr(collections, 'MutableMapping'):
@@ -49,6 +57,7 @@ LDAP_CONFIG = {
 
 MASTER_ADMINS = ['rapeiko', 'oc1']
 DB_PATH = 'database.db'
+GYM_ROOM_NAME = 'Спортзал'
 LOGO_FILENAME = 'image2_hq.png'
 PHONEBOOK_PATH = 'phonebook.xlsx'
 PHONEBOOK_COLUMNS = ['dept', 'pos', 'surname', 'name', 'work', 'home', 'mobile']
@@ -63,6 +72,26 @@ APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
 _ad_groups_cache = {}
+TABEL_BASE_DIR = os.environ.get('TABEL_BASE_DIR', r'\\srv-doc\ТАБЕЛЬ')
+TABEL_LEADERS_FILE = os.environ.get('TABEL_LEADERS_FILE', r'\\srv-doc\ТАБЕЛЬ\ОЦ\Список руководителей.xlsx')
+TABEL_SHEET_NAME = os.environ.get('TABEL_SHEET_NAME', 'Табель_3')
+TABEL_CACHE_FILE = os.environ.get('TABEL_CACHE_FILE', 'tabel_portal_cache.json')
+TABEL_FILE_PATTERN = re.compile(r'^(.+?)_(\d{2})_(\d{2})\.xlsx?$', re.IGNORECASE)
+TABEL_FIO_RE = re.compile(r'^[А-ЯЁ][а-яё\-]+\s+[А-ЯЁ]\s*\.\s*[А-ЯЁ]\s*\.\s*$', re.IGNORECASE)
+TABEL_STATUS_MAP = {
+    'Б': 'Больничный', 'Н': 'Неявки', 'Р': 'Роды', 'ОЖ': 'Уход за ребенком',
+    'О': 'Отпуск', 'ЛО': 'Социальный отпуск', 'А': 'Отпуск без сохранения', 'Т': 'Нетрудоспособность',
+    'Х': 'Уход за больным', 'ПР': 'Прогул', 'Г': 'Гособязанность', 'ОА': 'Инициатива нанимателя',
+    'Д': 'Донор', 'У': 'Учеба', 'УД': 'Учебные дни', 'ДМ': 'День матери',
+    'ДСП': 'Диспансеризация', 'П': 'Праздник', 'К': 'Командировка', 'В': 'Выходной'
+}
+TABEL_INDEX_LOCK = threading.Lock()
+TABEL_INDEX = {}
+TABEL_FILE_CACHE = {}
+TABEL_LEADERS_CACHE = {}
+TABEL_LEADERS_MTIME = 0.0
+TABEL_LAST_SCAN_TS = 0.0
+TABEL_SCAN_INTERVAL_SEC = 180
 
 
 def normalize_resource_url(raw_url):
@@ -93,11 +122,241 @@ def normalize_ad_username(raw_username):
     return username
 
 
+def _tabel_clean_fio(raw_val):
+    if pd.isna(raw_val):
+        return ''
+    text = str(raw_val).strip()
+    return text.replace('\xa0', ' ').replace('\u200b', '')
+
+
+def _tabel_is_work_value(value_str):
+    if value_str in ('', '0', '0.0'):
+        return False
+    return value_str.replace('.', '', 1).replace(',', '', 1).isdigit()
+
+
+def _tabel_parse_filename(filename):
+    match = TABEL_FILE_PATTERN.match(filename or '')
+    if not match:
+        return None, None
+    return match.group(2), match.group(3)
+
+
+def _tabel_read_any_excel(path):
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        if path.lower().endswith('.xlsx'):
+            return pd.read_excel(path, sheet_name=TABEL_SHEET_NAME, engine='openpyxl', header=None)
+        if xlrd is None:
+            return None
+        workbook = xlrd.open_workbook(path, formatting_info=False)
+        sheet = workbook.sheet_by_name(TABEL_SHEET_NAME)
+        return pd.DataFrame([sheet.row_values(i) for i in range(sheet.nrows)])
+    except Exception:
+        return None
+
+
+def _tabel_load_cache():
+    global TABEL_FILE_CACHE
+    if not os.path.exists(TABEL_CACHE_FILE):
+        TABEL_FILE_CACHE = {}
+        return
+    try:
+        with open(TABEL_CACHE_FILE, 'r', encoding='utf-8') as cache_file:
+            parsed = json.load(cache_file)
+            TABEL_FILE_CACHE = parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        TABEL_FILE_CACHE = {}
+
+
+def _tabel_save_cache():
+    try:
+        with open(TABEL_CACHE_FILE, 'w', encoding='utf-8') as cache_file:
+            json.dump(TABEL_FILE_CACHE, cache_file, ensure_ascii=False)
+    except Exception:
+        return
+
+
+def _tabel_rebuild_index_from_cache():
+    local_index = {}
+    for file_path, data in TABEL_FILE_CACHE.items():
+        if not isinstance(data, dict):
+            continue
+        dept = data.get('dept')
+        yy_mm = data.get('yy_mm')
+        emps = data.get('emps')
+        if not dept or not yy_mm or not isinstance(emps, list):
+            continue
+        local_index.setdefault(dept, {}).setdefault(yy_mm, []).append({'file': file_path, 'employees': emps})
+    with TABEL_INDEX_LOCK:
+        TABEL_INDEX.clear()
+        TABEL_INDEX.update(local_index)
+
+
+def _scan_tabel_base_dir():
+    global TABEL_FILE_CACHE
+    current_year = datetime.now().year
+    found_files = set()
+    cache_updated = False
+    for root, _, files in os.walk(TABEL_BASE_DIR):
+        rel = os.path.relpath(root, TABEL_BASE_DIR)
+        dept = rel.split(os.sep)[0] if rel != '.' else 'Общий'
+        for filename in files:
+            if not filename.lower().endswith(('.xls', '.xlsx')) or filename.startswith('~$'):
+                continue
+            mm, yy = _tabel_parse_filename(filename)
+            if not mm:
+                continue
+            try:
+                if 2000 + int(yy) < current_year - 1:
+                    continue
+            except Exception:
+                continue
+            full_path = os.path.join(root, filename)
+            found_files.add(full_path)
+            try:
+                current_mtime = os.path.getmtime(full_path)
+            except OSError:
+                continue
+            cached = TABEL_FILE_CACHE.get(full_path)
+            if isinstance(cached, dict) and cached.get('mtime') == current_mtime:
+                continue
+            df = _tabel_read_any_excel(full_path)
+            if df is None:
+                continue
+            employees = []
+            try:
+                for row_index, raw_name in enumerate(df.iloc[:, 1]):
+                    name = _tabel_clean_fio(raw_name)
+                    if not name or not TABEL_FIO_RE.match(name):
+                        continue
+                    row_data = df.iloc[row_index].values
+                    days_data = []
+                    for day_idx in range(31):
+                        col_idx = 2 + day_idx
+                        if col_idx < len(row_data):
+                            day_val = row_data[col_idx]
+                            days_data.append(str(day_val).strip() if not pd.isna(day_val) else '')
+                        else:
+                            days_data.append('')
+                    employees.append({'fio': name, 'days': days_data})
+            except Exception:
+                continue
+            if employees:
+                TABEL_FILE_CACHE[full_path] = {
+                    'mtime': current_mtime,
+                    'dept': dept,
+                    'yy_mm': f'{yy}_{mm}',
+                    'emps': employees
+                }
+                cache_updated = True
+    deleted_files = set(TABEL_FILE_CACHE.keys()) - found_files
+    if deleted_files:
+        for deleted_path in deleted_files:
+            TABEL_FILE_CACHE.pop(deleted_path, None)
+        cache_updated = True
+    if cache_updated:
+        _tabel_save_cache()
+    _tabel_rebuild_index_from_cache()
+
+
+def ensure_tabel_index(force=False):
+    global TABEL_LAST_SCAN_TS
+    now_ts = time.time()
+    if not force and (now_ts - TABEL_LAST_SCAN_TS) < TABEL_SCAN_INTERVAL_SEC and TABEL_INDEX:
+        return
+    with TABEL_INDEX_LOCK:
+        # Повторно проверяем внутри lock, чтобы не запускать конкурентные сканы.
+        if not force and (time.time() - TABEL_LAST_SCAN_TS) < TABEL_SCAN_INTERVAL_SEC and TABEL_INDEX:
+            return
+    _scan_tabel_base_dir()
+    TABEL_LAST_SCAN_TS = time.time()
+
+
+def _tabel_get_current_status(fio):
+    now = datetime.now()
+    curr_period = f'{str(now.year)[2:]}_{now.month:02d}'
+    day_idx = now.day - 1
+    with TABEL_INDEX_LOCK:
+        for dep_data in TABEL_INDEX.values():
+            records = dep_data.get(curr_period) or []
+            for rec in records:
+                match = next((item for item in rec.get('employees', []) if item.get('fio') == fio), None)
+                if not match:
+                    continue
+                days = match.get('days') or []
+                if day_idx >= len(days):
+                    return 'unknown'
+                val = str(days[day_idx]).strip().upper()
+                if val == '':
+                    return 'absent'
+                if _tabel_is_work_value(val):
+                    return 'work'
+                if val == 'В':
+                    return 'rest'
+                return 'absent'
+    return 'unknown'
+
+
+def get_tabel_leaders_data():
+    global TABEL_LEADERS_CACHE, TABEL_LEADERS_MTIME
+    categories = [
+        'Руководство',
+        'Персонал при руководстве',
+        'Производственные отделы',
+        'Главные инженеры проекта',
+        'Непроизводственные отделы'
+    ]
+    try:
+        current_mtime = os.path.getmtime(TABEL_LEADERS_FILE) if os.path.exists(TABEL_LEADERS_FILE) else 0
+    except Exception:
+        current_mtime = 0
+    if TABEL_LEADERS_CACHE and current_mtime == TABEL_LEADERS_MTIME:
+        for category in categories:
+            for leader in TABEL_LEADERS_CACHE.get(category, []):
+                leader['status_cls'] = f"st-{_tabel_get_current_status(leader.get('fio', ''))}"
+        return TABEL_LEADERS_CACHE
+    data = {category: [] for category in categories}
+    if not os.path.exists(TABEL_LEADERS_FILE):
+        return data
+    try:
+        workbook = openpyxl.load_workbook(TABEL_LEADERS_FILE, data_only=True)
+        sheet = workbook.active
+        current_category = None
+        for row in sheet.iter_rows(values_only=True):
+            first_val = _tabel_clean_fio(row[0] if row else '')
+            if not first_val:
+                continue
+            matched_category = next((cat for cat in categories if cat.lower() == first_val.lower()), None)
+            if matched_category:
+                current_category = matched_category
+                continue
+            if current_category and TABEL_FIO_RE.match(first_val):
+                status = _tabel_get_current_status(first_val)
+                data[current_category].append({
+                    'fio': first_val,
+                    'info': f"{str((row[1] if len(row) > 1 else '') or '')} {str((row[2] if len(row) > 2 else '') or '')}".strip(),
+                    'status_cls': f'st-{status}'
+                })
+        TABEL_LEADERS_CACHE = data
+        TABEL_LEADERS_MTIME = current_mtime
+    except Exception:
+        return data
+    return data
+
+
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute('PRAGMA journal_mode=WAL;')
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def ensure_gym_room_exists():
+    with get_db_connection() as conn:
+        conn.execute('INSERT OR IGNORE INTO meeting_rooms (name) VALUES (?)', (GYM_ROOM_NAME,))
+        conn.commit()
 
 
 def format_phone(phone):
@@ -217,7 +476,7 @@ def init_db():
             normalized_url = normalize_resource_url(row['url'])
             if normalized_url != row['url']:
                 conn.execute('UPDATE resources SET url = ? WHERE id = ?', (normalized_url, row['id']))
-        default_rooms = ['Переговорка 1', 'Переговорка 2', 'Конференц-зал']
+        default_rooms = ['Переговорка 1', 'Переговорка 2', 'Конференц-зал', GYM_ROOM_NAME]
         for room_name in default_rooms:
             conn.execute('INSERT OR IGNORE INTO meeting_rooms (name) VALUES (?)', (room_name,))
         conn.commit()
@@ -339,7 +598,58 @@ def meeting_rooms_page():
         'meeting_rooms.html',
         is_admin=is_admin,
         user_login=session.get('username'),
-        user_display=session.get('display_name') or session.get('username')
+        user_display=session.get('display_name') or session.get('username'),
+        single_room_mode=False,
+        fixed_room_name=''
+    )
+
+
+@app.route('/gym-booking')
+def gym_booking_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    ensure_gym_room_exists()
+    is_admin = session.get('username') in MASTER_ADMINS
+    return render_template(
+        'meeting_rooms.html',
+        is_admin=is_admin,
+        user_login=session.get('username'),
+        user_display=session.get('display_name') or session.get('username'),
+        single_room_mode=True,
+        fixed_room_name=GYM_ROOM_NAME
+    )
+
+
+@app.route('/tabel')
+def tabel_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    ensure_tabel_index()
+    now = datetime.now()
+    current_period_key = f"{str(now.year)[2:]}_{now.month:02d}"
+    with TABEL_INDEX_LOCK:
+        all_periods = set()
+        for dep_data in TABEL_INDEX.values():
+            all_periods.update(dep_data.keys())
+        periods = sorted(list(all_periods), reverse=True)
+    human_periods = [{"key": p, "label": f"{p.split('_')[1]}.20{p.split('_')[0]}"} for p in periods if '_' in p]
+    if not human_periods:
+        for offset in range(12):
+            month_index = now.month - offset
+            year = now.year
+            while month_index <= 0:
+                month_index += 12
+                year -= 1
+            yy = str(year)[2:]
+            mm = f'{month_index:02d}'
+            human_periods.append({"key": f"{yy}_{mm}", "label": f"{mm}.{year}"})
+    return render_template(
+        'tabel.html',
+        user=session.get('username'),
+        user_display=session.get('display_name') or session.get('username'),
+        periods=human_periods,
+        leaders=get_tabel_leaders_data(),
+        current_period=current_period_key
     )
 
 
@@ -350,6 +660,150 @@ def logout():
         _ad_groups_cache.pop(login, None)
     session.clear()
     return redirect(url_for('login_page'))
+
+
+@app.route('/api/tabel/meta')
+def tabel_meta():
+    if not session.get('logged_in'):
+        return jsonify(success=False, error='Требуется авторизация'), 403
+    ensure_tabel_index()
+    now = datetime.now()
+    source_available = os.path.exists(TABEL_BASE_DIR)
+    leaders_source_available = os.path.exists(TABEL_LEADERS_FILE)
+    current_period = f'{str(now.year)[2:]}_{now.month:02d}'
+    with TABEL_INDEX_LOCK:
+        all_periods = set()
+        for dep_data in TABEL_INDEX.values():
+            all_periods.update(dep_data.keys())
+    periods = sorted(all_periods, reverse=True)
+    payload = []
+    for period in periods:
+        if '_' not in period:
+            continue
+        yy, mm = period.split('_', 1)
+        if not (yy.isdigit() and mm.isdigit()):
+            continue
+        payload.append({'key': period, 'label': f'{mm}.20{yy}'})
+    # Если файлов табеля нет/недоступны, отдаем последние 12 месяцев как fallback,
+    # чтобы UI оставался рабочим и предсказуемым для пользователя.
+    if not payload:
+        now = datetime.now()
+        for offset in range(12):
+            month_index = now.month - offset
+            year = now.year
+            while month_index <= 0:
+                month_index += 12
+                year -= 1
+            yy = str(year)[2:]
+            mm = f'{month_index:02d}'
+            payload.append({'key': f'{yy}_{mm}', 'label': f'{mm}.{year}'})
+    return jsonify({
+        'periods': payload,
+        'current_period': current_period,
+        'source': {
+            'base_dir': TABEL_BASE_DIR,
+            'leaders_file': TABEL_LEADERS_FILE,
+            'base_dir_available': source_available,
+            'leaders_file_available': leaders_source_available
+        }
+    })
+
+
+@app.route('/api/tabel/leaders')
+def tabel_leaders():
+    if not session.get('logged_in'):
+        return jsonify(success=False, error='Требуется авторизация'), 403
+    ensure_tabel_index()
+    return jsonify(get_tabel_leaders_data())
+
+
+@app.route('/api/tabel/search-fio')
+def tabel_search_fio():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    ensure_tabel_index()
+    query = (request.args.get('q') or '').strip().lower()
+    if not query:
+        return jsonify([])
+    suggestions = set()
+    with TABEL_INDEX_LOCK:
+        for dep_data in TABEL_INDEX.values():
+            for records in dep_data.values():
+                for record in records:
+                    for employee in record.get('employees', []):
+                        fio = employee.get('fio') or ''
+                        if query in fio.lower():
+                            suggestions.add(fio)
+    return jsonify(sorted(list(suggestions))[:15])
+
+
+@app.route('/api/tabel/status-month')
+def tabel_status_month():
+    if not session.get('logged_in'):
+        return jsonify(success=False, error='Требуется авторизация'), 403
+    ensure_tabel_index()
+    fio = (request.args.get('fio') or '').strip()
+    period = (request.args.get('period') or '').strip()
+    if not fio or not period or '_' not in period:
+        return jsonify({'error': 'invalid'}), 400
+    yy, mm = period.split('_', 1)
+    try:
+        target_year = 2000 + int(yy)
+        target_month = int(mm)
+        days_in_month = calendar.monthrange(target_year, target_month)[1]
+    except Exception:
+        return jsonify({'error': 'date'}), 400
+    now = datetime.now()
+    with TABEL_INDEX_LOCK:
+        for dept_name, dep_periods in TABEL_INDEX.items():
+            records = dep_periods.get(period) or []
+            for record in records:
+                match = next((emp for emp in record.get('employees', []) if emp.get('fio') == fio), None)
+                if not match:
+                    continue
+                result = []
+                days = match.get('days') or []
+                for day_number in range(1, days_in_month + 1):
+                    is_future = (
+                        target_year > now.year or
+                        (target_year == now.year and target_month > now.month) or
+                        (target_year == now.year and target_month == now.month and day_number > now.day)
+                    )
+                    day_idx = day_number - 1
+                    value = str(days[day_idx]).strip().upper() if day_idx < len(days) else ''
+                    if value in ('', '0', '0.0'):
+                        label, color = '—', 'red'
+                    elif _tabel_is_work_value(value):
+                        label, color = 'На работе', 'green'
+                    elif value == 'В':
+                        label, color = 'Выходной', 'orange'
+                    else:
+                        label, color = TABEL_STATUS_MAP.get(value, value), 'red'
+                    result.append({'day': day_number, 'label': label, 'color': 'future' if is_future else color})
+                return jsonify({'days': result, 'fio': fio, 'department': dept_name})
+    return jsonify({'error': 'not_found'}), 404
+
+
+@app.route('/api/leaders')
+def tabel_leaders_compat():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    ensure_tabel_index()
+    return jsonify(get_tabel_leaders_data())
+
+
+@app.route('/search_fio')
+def tabel_search_fio_compat():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    return tabel_search_fio()
+
+
+@app.route('/status_month')
+def tabel_status_month_compat():
+    if not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 403
+    return tabel_status_month()
 
 
 @app.route('/api/meeting-rooms')
@@ -1146,4 +1600,6 @@ def manage_group():
 
 if __name__ == '__main__':
     init_db()
+    _tabel_load_cache()
+    _tabel_rebuild_index_from_cache()
     app.run(host='0.0.0.0', port=5004, debug=True, threaded=True)

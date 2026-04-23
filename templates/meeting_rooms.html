@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Бронирование переговорок | РУП Белнипиэнергопром</title>
+    <title>{% if single_room_mode %}Бронирование спортзала{% else %}Бронирование переговорок{% endif %} | РУП Белнипиэнергопром</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -965,8 +965,8 @@
 
 <div class="main-container container">
     <section class="hero-panel">
-        <h1 class="hero-title">Бронирование переговорок</h1>
-        <p class="hero-subtitle">Единый сервис для бронирования встреч в переговорных комнатах.</p>
+        <h1 class="hero-title">{% if single_room_mode %}Бронирование спортзала{% else %}Бронирование переговорок{% endif %}</h1>
+        <p class="hero-subtitle">{% if single_room_mode %}Единый сервис для бронирования спортивного зала.{% else %}Единый сервис для бронирования встреч в переговорных комнатах.{% endif %}</p>
     </section>
 
     <div class="booking-layout">
@@ -974,9 +974,11 @@
             <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#bookingFormCollapse" aria-expanded="false" aria-controls="bookingFormCollapse">
                 Добавить бронь
             </button>
+            {% if not single_room_mode %}
             <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#roomsCollapse" aria-expanded="false" aria-controls="roomsCollapse">
                 Переговорки
             </button>
+            {% endif %}
         </div>
 
         <div class="collapse" id="bookingFormCollapse">
@@ -1006,6 +1008,7 @@
                     </div>
                     <p class="field-hint">Выберите минимум одного участника из корпоративного AD.</p>
                 </div>
+                {% if not single_room_mode %}
                 <div class="field-block">
                     <label class="field-label" for="roomSelect">Переговорка</label>
                     <div class="room-dropdown" id="roomDropdown">
@@ -1018,6 +1021,13 @@
                     <p class="field-hint">Начните печатать название переговорки в выпадающем списке.</p>
                     <input type="hidden" id="roomSelect" required>
                 </div>
+                {% else %}
+                <div class="field-block">
+                    <label class="field-label">Место</label>
+                    <input class="form-control" type="text" value="{{ fixed_room_name }}" readonly>
+                    <input type="hidden" id="roomSelect" required>
+                </div>
+                {% endif %}
                 <div class="field-block">
                     <label class="field-label" for="dateInput">Дата</label>
                     <input id="dateInput" type="text" class="form-control" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" required>
@@ -1054,6 +1064,7 @@
         </section>
         </div>
 
+        {% if not single_room_mode %}
         <div class="collapse" id="roomsCollapse">
         <section class="panel room-panel">
             <div class="panel-header">
@@ -1071,6 +1082,7 @@
             <div id="roomList" class="room-list"></div>
         </section>
         </div>
+        {% endif %}
     </div>
 
     <section class="panel mt-3">
@@ -1104,7 +1116,9 @@
             <div class="planner-header">
                 <h3 id="plannerTitle" class="planner-title">Календарь встреч</h3>
                 <div class="planner-controls">
+                    <button id="plannerPrevBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" aria-label="Предыдущий период">◀</button>
                     <button id="plannerMonthBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">Месяц</button>
+                    <button id="plannerNextBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn" aria-label="Следующий период">▶</button>
                     <button id="plannerTodayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">Сегодня</button>
                 </div>
             </div>
@@ -1173,6 +1187,8 @@
     const currentUser = "{{ user_login }}";
     const currentUserDisplay = "{{ user_display }}";
     const canAdminManageBookings = isAdmin;
+    const singleRoomMode = {{ 'true' if single_room_mode else 'false' }};
+    const fixedRoomName = {{ (fixed_room_name or '')|tojson }};
     let rooms = [];
     let bookings = [];
     let editId = null;
@@ -1197,7 +1213,9 @@
     const clearDateFilterBtn = document.getElementById("clearDateFilterBtn");
     const plannerWrap = document.querySelector(".planner-wrap");
     const plannerTitle = document.getElementById("plannerTitle");
+    const plannerPrevBtn = document.getElementById("plannerPrevBtn");
     const plannerMonthBtn = document.getElementById("plannerMonthBtn");
+    const plannerNextBtn = document.getElementById("plannerNextBtn");
     const plannerTodayBtn = document.getElementById("plannerTodayBtn");
     const participantsSelector = document.getElementById("participantsSelector");
     const participantsChipList = document.getElementById("participantsChipList");
@@ -1217,6 +1235,7 @@
     let bookingFormCollapse;
     let roomsCollapse;
     let plannerMode = "month";
+    let fixedRoomId = null;
     const ROOM_EVENT_PALETTE = Array.from({ length: 12 }, (_, index) => {
         const baseHue = 210 + (index * 4); // Близкие холодные оттенки для легкого различия переговорок.
         return {
@@ -1276,7 +1295,9 @@
 
     function initCollapses() {
         bookingFormCollapse = bootstrap.Collapse.getOrCreateInstance(bookingFormCollapseEl, { toggle: false });
-        roomsCollapse = bootstrap.Collapse.getOrCreateInstance(roomsCollapseEl, { toggle: false });
+        if (roomsCollapseEl) {
+            roomsCollapse = bootstrap.Collapse.getOrCreateInstance(roomsCollapseEl, { toggle: false });
+        }
     }
 
     function initPlanner() {
@@ -1512,7 +1533,8 @@
         dateInput.readOnly = !isEditable;
         startInput.readOnly = !isEditable;
         endInput.readOnly = !isEditable;
-        document.getElementById("roomDropdownBtn").disabled = !isEditable;
+        const roomBtn = document.getElementById("roomDropdownBtn");
+        if (roomBtn) roomBtn.disabled = !isEditable;
         participantsSearchInput.disabled = !isEditable;
         submitBtn.classList.toggle("d-none", !isEditable);
     }
@@ -1532,12 +1554,24 @@
 
     async function loadRooms() {
         rooms = await requestJson("/api/meeting-rooms");
+        if (singleRoomMode) {
+            rooms = rooms.filter((room) => String(room.name || "").toLowerCase() === String(fixedRoomName || "").toLowerCase());
+            fixedRoomId = rooms.length ? rooms[0].id : null;
+        }
         populateRoomSelect();
         renderRooms();
     }
 
     async function loadBookings() {
-        bookings = await requestJson("/api/meeting-bookings");
+        const allBookings = await requestJson("/api/meeting-bookings");
+        if (singleRoomMode) {
+            const targetId = Number(fixedRoomId);
+            bookings = Number.isFinite(targetId)
+                ? allBookings.filter((item) => Number(item.room_id) === targetId)
+                : [];
+        } else {
+            bookings = allBookings;
+        }
         renderBookings();
     }
 
@@ -1547,7 +1581,9 @@
     }
 
     function renderRooms() {
+        if (singleRoomMode) return;
         const wrap = document.getElementById("roomList");
+        if (!wrap) return;
         wrap.innerHTML = rooms.map((room) => `
             <span class="room-chip">
                 ${room.name}
@@ -1657,6 +1693,7 @@
 
     function buildRoomDropdown() {
         const menu = document.getElementById("roomDropdownMenu");
+        if (!menu) return;
         menu.innerHTML = `
             <div class="room-search-wrap">
                 <span class="room-search-icon" aria-hidden="true">
@@ -1718,7 +1755,7 @@
             opt.classList.toggle("selected", selected);
             if (selected) selectedName = opt.dataset.roomName;
         });
-        label.textContent = selectedName;
+        if (label) label.textContent = selectedName;
     }
 
     function getFormPayload() {
@@ -2210,6 +2247,16 @@
         openMonthView();
         renderBookings();
     });
+    plannerPrevBtn.addEventListener("click", () => {
+        if (!plannerCalendar) return;
+        plannerCalendar.prev();
+        updatePlannerHeader();
+    });
+    plannerNextBtn.addEventListener("click", () => {
+        if (!plannerCalendar) return;
+        plannerCalendar.next();
+        updatePlannerHeader();
+    });
     plannerTodayBtn.addEventListener("click", () => {
         const todayIso = getTodayIsoLocal();
         if (plannerCalendar) {
@@ -2263,19 +2310,21 @@
 
     const roomDropdown = document.getElementById("roomDropdown");
     const roomDropdownBtn = document.getElementById("roomDropdownBtn");
-    roomDropdownBtn.addEventListener("click", () => {
-        roomDropdown.classList.toggle("open");
-        if (roomDropdown.classList.contains("open")) {
-            const search = document.getElementById("roomSearch");
-            if (search) {
-                search.value = "";
-                roomDropdown.querySelectorAll(".room-option").forEach((opt) => { opt.style.display = "flex"; });
-                search.focus();
+    if (roomDropdown && roomDropdownBtn) {
+        roomDropdownBtn.addEventListener("click", () => {
+            roomDropdown.classList.toggle("open");
+            if (roomDropdown.classList.contains("open")) {
+                const search = document.getElementById("roomSearch");
+                if (search) {
+                    search.value = "";
+                    roomDropdown.querySelectorAll(".room-option").forEach((opt) => { opt.style.display = "flex"; });
+                    search.focus();
+                }
             }
-        }
-    });
+        });
+    }
     document.addEventListener("click", (event) => {
-        if (!event.target.closest("#roomDropdown")) {
+        if (roomDropdown && !event.target.closest("#roomDropdown")) {
             roomDropdown.classList.remove("open");
         }
         if (!event.target.closest("#participantsSelector")) {
@@ -2304,6 +2353,10 @@
             initPlanner();
             await loadRooms();
             buildRoomDropdown();
+            if (singleRoomMode && !rooms.length) {
+                showInfo(`Не удалось подготовить площадку "${fixedRoomName}". Обновите страницу или обратитесь к администратору.`, "Ошибка");
+                return;
+            }
             if (rooms.length) setSelectedRoom(rooms[0].id);
             await loadBookings();
             resetForm();

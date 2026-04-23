@@ -442,7 +442,7 @@
 {% if is_admin %}
 <div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h6 class="modal-title fw-bold">Добавление ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body"><form id="addForm">
+    <div class="modal-body"><form id="addForm" novalidate>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" class="form-control" placeholder="Например: Почта, CRM, Service Desk" required></div>
         <div class="mb-3">
             <label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label>
@@ -458,7 +458,7 @@
                 <input type="text" name="category_new" id="addCategoryNew" class="form-control" placeholder="Введите название нового раздела">
             </div>
         </div>
-        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" class="form-control" placeholder="https://" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="text" name="url" class="form-control" placeholder="https://... или /tabel" required></div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" class="form-control" rows="2" placeholder="Коротко: для чего используется ресурс"></textarea></div>
         <div class="mb-3">
             <label class="small fw-bold text-muted mb-2">ДОСТУП ДЛЯ ГРУПП</label>
@@ -476,7 +476,7 @@
 
 <div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h6 class="modal-title fw-bold">Редактирование ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body"><form id="editForm">
+    <div class="modal-body"><form id="editForm" novalidate>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">НАИМЕНОВАНИЕ РЕСУРСА</label><input type="text" name="title" id="e_title" class="form-control" required></div>
         <div class="mb-3">
             <label class="small fw-bold text-muted mb-1">РАЗДЕЛ</label>
@@ -492,7 +492,7 @@
                 <input type="text" name="category_new" id="editCategoryNew" class="form-control" placeholder="Введите название нового раздела">
             </div>
         </div>
-        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="url" name="url" id="e_url" class="form-control" required></div>
+        <div class="mb-3"><label class="small fw-bold text-muted mb-1">URL</label><input type="text" name="url" id="e_url" class="form-control" placeholder="https://... или /tabel" required></div>
         <div class="mb-3"><label class="small fw-bold text-muted mb-1">КРАТКОЕ ОПИСАНИЕ</label><textarea name="desc" id="e_desc" class="form-control" rows="2"></textarea></div>
         <div class="mb-3">
             <label class="small fw-bold text-muted mb-2">ДОСТУП ДЛЯ ГРУПП</label>
@@ -781,6 +781,11 @@
     if (isAdmin) {
         document.getElementById('addForm').onsubmit = async (e) => {
             e.preventDefault();
+            const addUrlInput = e.target.querySelector('input[name="url"]');
+            if (!addUrlInput || !addUrlInput.value.trim()) {
+                addUrlInput?.focus();
+                return;
+            }
             await fetch('/add', { method: 'POST', body: new FormData(e.target) });
             await loadCategories();
             loadResources();
@@ -796,6 +801,11 @@
         };
         document.getElementById('editForm').onsubmit = async (e) => {
             e.preventDefault();
+            const editUrlInput = e.target.querySelector('input[name="url"]');
+            if (!editUrlInput || !editUrlInput.value.trim()) {
+                editUrlInput?.focus();
+                return;
+            }
             await fetch(`/edit/${e.target.dataset.id}`, { method: 'POST', body: new FormData(e.target) });
             await loadCategories();
             loadResources();
