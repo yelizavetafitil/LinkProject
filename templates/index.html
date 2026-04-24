@@ -536,7 +536,13 @@
             'trash-2': '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path>',
             'chevron-down': '<polyline points="6 9 12 15 18 9"></polyline>',
             'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>',
-            check: '<polyline points="20 6 9 17 4 12"></polyline>'
+            check: '<polyline points="20 6 9 17 4 12"></polyline>',
+            phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3.1 5.18 2 2 0 0 1 5.09 3h3a2 2 0 0 1 2 1.72c.12.89.33 1.76.62 2.6a2 2 0 0 1-.45 2.1L9 10.91a16 16 0 0 0 4.09 4.09l1.49-1.26a2 2 0 0 1 2.1-.45c.84.29 1.71.5 2.6.62A2 2 0 0 1 22 16.92z"></path>',
+            mail: '<rect x="3" y="5" width="18" height="14" rx="2"></rect><polyline points="3 7 12 13 21 7"></polyline>',
+            globe: '<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15 15 0 0 1 0 20"></path><path d="M12 2a15 15 0 0 0 0 20"></path>',
+            calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+            clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path><line x1="9" y1="12" x2="15" y2="12"></line><line x1="9" y1="16" x2="15" y2="16"></line>',
+            dumbbell: '<path d="M14.4 14.4 9.6 9.6"></path><path d="M18 4l2 2"></path><path d="M2 20l2 2"></path><path d="M20 2l2 2"></path><path d="M4 18l2 2"></path><path d="M15.5 8.5l3-3"></path><path d="M8.5 15.5l-3 3"></path><path d="M12 12l-1 1"></path>'
         };
         document.querySelectorAll('[data-lucide]').forEach((el) => {
             const name = el.getAttribute('data-lucide');
@@ -563,6 +569,23 @@
             return DEFAULT_RESOURCE_ICON;
         }
     }
+    const INTERNAL_ICON_BY_PATH = {
+        '/phonebook': 'phone',
+        '/meeting-rooms': 'calendar',
+        '/tabel': 'clipboard',
+        '/gym-booking': 'dumbbell'
+    };
+
+    function getResourceIconName(item) {
+        try {
+            const parsed = new URL(item.url || '', window.location.origin);
+            if (parsed.origin !== window.location.origin) return '';
+            const normalizedPath = parsed.pathname.replace(/\/+$/, '') || '/';
+            return INTERNAL_ICON_BY_PATH[normalizedPath] || '';
+        } catch {
+            return '';
+        }
+    }
 
     async function loadResources() {
         const q = document.getElementById('searchInput').value;
@@ -580,7 +603,9 @@
                             ${isAdmin ? `<div class="admin-hud"><button type="button" class="hud-btn" onclick="openEdit(${item.id})"><i data-lucide="settings" size="13"></i></button><button type="button" class="hud-btn btn-delete" onclick="delItem(${item.id})"><i data-lucide="trash-2" size="13"></i></button></div>` : ''}
                             <a href="${item.url}" target="_blank" class="card-link">
                                 <div class="icon-container">
-                                    <img src="${getIcon(item.url)}" class="tile-icon" onerror="this.src=DEFAULT_RESOURCE_ICON">
+                                    ${getResourceIconName(item)
+                                        ? `<i data-lucide="${getResourceIconName(item)}" size="20"></i>`
+                                        : `<img src="${getIcon(item.url)}" class="tile-icon" onerror="this.src=DEFAULT_RESOURCE_ICON">`}
                                 </div>
                                 <div class="card-body">
                                     <h6 class="card-title">${item.title}</h6>

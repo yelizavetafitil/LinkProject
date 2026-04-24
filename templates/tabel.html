@@ -3,132 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Табель сотрудников</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Мониторинг табеля</title>
+    <style>
+        :root {
+            --bg: #f0f2f5; --card: #ffffff; --text: #1a202c; --accent: #3182ce; --border: #e2e8f0;
+            --green: #1b4332; --orange: #744210; --red: #742a2a; --gray: #4a5568;
+            --green-bg: #c6f6d5; --orange-bg: #feebc8; --red-bg: #fed7d7;
+        }
+        body.dark {
+            --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --accent: #38bdf8; --border: #334155;
+            --green: #4ade80; --orange: #fbbf24; --red: #f87171;
+            --green-bg: #064e3b; --orange-bg: #451a03; --red-bg: #450a0a;
+        }
+        body { margin: 0; padding: 10px; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; box-sizing: border-box; }
+
+        .layout { display: grid; grid-template-columns: 280px 1fr 280px; gap: 10px; height: 100%; }
+        .panel { background: var(--card); border-radius: 12px; padding: 10px; border: 1px solid var(--border); overflow-y: auto; }
+
+        .panel h3 {
+            margin: 18px 0 8px 5px;
+            font-size: 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+            border-left: 3px solid var(--accent);
+            padding-left: 8px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+        .panel h3:first-child { margin-top: 5px; }
+
+        .leader-item {
+            padding: 6px 10px;
+            margin-bottom: 5px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .leader-item:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .l-fio { font-size: 12px; font-weight: 600; display: block; }
+        .l-info { font-size: 10px; opacity: 0.6; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray); }
+        .st-work .status-dot { background: #48bb78; box-shadow: 0 0 6px #48bb78; }
+        .st-rest .status-dot { background: #ed8936; }
+        .st-absent .status-dot { background: #f56565; }
+
+        .main-card { background: var(--card); border-radius: 12px; padding: 15px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; background: var(--bg); padding: 10px; border-radius: 10px; align-items: flex-end; position: relative; z-index: 10; }
+        .control-group { position: relative; flex: 2; }
+        .control-group.small { flex: 1; }
+
+        input, select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font-size: 13px; outline: none; }
+        input:focus { border-color: var(--accent); }
+
+        #sug { position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 6px; z-index: 1001; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; }
+        #sug div { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 12px; }
+        #sug div:hover { background: var(--accent); color: white; }
+
+        .btn-main { padding: 0 15px; height: 35px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 12px; transition: opacity 0.2s; }
+        .btn-main:hover { opacity: 0.9; }
+
+        #res { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; flex: 1; height: 100%; }
+        .day { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; background: var(--bg); border: 1px solid transparent; min-height: 50px; }
+        .day.green { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+        .day.orange { background: var(--orange-bg); color: var(--orange); border-color: var(--orange); }
+        .day.red { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+        .day.future { opacity: 0.4; background: var(--bg) !important; border: 1px dashed var(--border) !important; color: var(--gray) !important; }
+        .day.today { border: 2px solid var(--accent) !important; box-shadow: 0 0 10px rgba(49,130,206,0.2); }
+        .day-n { font-size: 18px; font-weight: 900; }
+        .day-l { font-size: 9px; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+    </style>
 </head>
-<body class="bg-light">
-<div class="container py-4">
-    <h1 class="h4 mb-3">Табель сотрудников</h1>
-    <div class="card mb-3">
-        <div class="card-body">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-6">
-                    <label class="form-label">Сотрудник</label>
-                    <input id="fioInput" class="form-control" list="fioHints" placeholder="Введите ФИО">
-                    <datalist id="fioHints"></datalist>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Месяц</label>
-                    <select id="periodSelect" class="form-select">
-                        {% for p in periods %}
-                        <option value="{{ p.key }}" {% if p.key == current_period %}selected{% endif %}>{{ p.label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button id="showBtn" class="btn btn-primary">Показать</button>
-                </div>
+<body>
+
+<div class="layout">
+    <div class="panel">
+        <h3>Руководство</h3>
+        {% for l in leaders['Руководство'] %}
+        <div class="leader-item {{l.status_cls}}" data-fio="{{l.fio}}" onclick="loadFio('{{l.fio}}')">
+            <div class="status-dot"></div>
+            <div class="leader-content"><span class="l-fio">{{l.fio}}</span><span class="l-info">{{l.info}}</span></div>
+        </div>
+        {% endfor %}
+
+        <h3>Производственные отделы</h3>
+        {% for l in leaders['Производственные отделы'] %}
+        <div class="leader-item {{l.status_cls}}" data-fio="{{l.fio}}" onclick="loadFio('{{l.fio}}')">
+            <div class="status-dot"></div>
+            <div class="leader-content"><span class="l-fio">{{l.fio}}</span><span class="l-info">{{l.info}}</span></div>
+        </div>
+        {% endfor %}
+
+        <h3>Главные инженеры проекта</h3>
+        {% for l in leaders['Главные инженеры проекта'] %}
+        <div class="leader-item {{l.status_cls}}" data-fio="{{l.fio}}" onclick="loadFio('{{l.fio}}')">
+            <div class="status-dot"></div>
+            <div class="leader-content"><span class="l-fio">{{l.fio}}</span><span class="l-info">{{l.info}}</span></div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="main-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+            <h2 id="dep-name" style="margin:0; font-size: 14px; color: var(--accent); font-weight: 800;">ОБЩИЙ МОНИТОРИНГ</h2>
+            <button onclick="document.body.classList.toggle('dark')" class="btn-main" style="background:var(--border); color:var(--text); height: 28px; font-size: 10px; padding: 0 10px;">🌓 ТЕМА</button>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <input type="text" id="fio" placeholder="Начните вводить фамилию..." autocomplete="off">
+                <div id="sug"></div>
             </div>
-            <div id="resultHeader" class="mt-3 text-muted small"></div>
-            <div id="daysWrap" class="row g-2 mt-1"></div>
+            <div class="control-group small">
+                <select id="period">
+                    {% for p in periods %}
+                    <option value="{{p.key}}" {% if p.key == current_period %}selected{% endif %}>{{p.label}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn-main" onclick="fetchData()">ПОИСК</button>
+        </div>
+
+        <div id="res">
+            <div style="text-align:center; opacity:0.3; margin-top:20vh;">
+                <p style="font-size: 14px; font-weight: 600;">Выберите сотрудника из списка или воспользуйтесь поиском</p>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <h2 class="h6 mb-3">Руководители</h2>
-            {% for category, items in leaders.items() %}
-            <div class="mb-3">
-                <div class="fw-bold mb-2">{{ category }}</div>
-                {% if items %}
-                    {% for leader in items %}
-                    <div class="border rounded p-2 mb-2 bg-white">
-                        <div class="fw-semibold">{{ leader.fio }}</div>
-                        <div class="small text-muted">{{ leader.info }}</div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="small text-muted">Нет данных</div>
-                {% endif %}
-            </div>
-            {% endfor %}
+    <div class="panel">
+        <h3>Персонал при руководстве</h3>
+        {% for l in leaders['Персонал при руководстве'] %}
+        <div class="leader-item {{l.status_cls}}" data-fio="{{l.fio}}" onclick="loadFio('{{l.fio}}')">
+            <div class="status-dot"></div>
+            <div class="leader-content"><span class="l-fio">{{l.fio}}</span><span class="l-info">{{l.info}}</span></div>
         </div>
+        {% endfor %}
+
+        <h3>Непроизводственные отделы</h3>
+        {% for l in leaders['Непроизводственные отделы'] %}
+        <div class="leader-item {{l.status_cls}}" data-fio="{{l.fio}}" onclick="loadFio('{{l.fio}}')">
+            <div class="status-dot"></div>
+            <div class="leader-content"><span class="l-fio">{{l.fio}}</span><span class="l-info">{{l.info}}</span></div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
 <script>
-const fioInput = document.getElementById('fioInput');
-const fioHints = document.getElementById('fioHints');
-const periodSelect = document.getElementById('periodSelect');
-const showBtn = document.getElementById('showBtn');
-const resultHeader = document.getElementById('resultHeader');
-const daysWrap = document.getElementById('daysWrap');
+    const fioInp = document.getElementById('fio'), sugBox = document.getElementById('sug');
 
-async function requestJson(url) {
-    const response = await fetch(url, { cache: 'no-store' });
-    let payload = null;
-    try {
-        payload = await response.json();
-    } catch (err) {
-        payload = null;
-    }
-    if (!response.ok) {
-        const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
-        throw new Error(message);
-    }
-    return payload;
-}
+    fioInp.oninput = async () => {
+        if(fioInp.value.length < 2) { sugBox.style.display='none'; return; }
+        const r = await fetch(`/search_fio?q=${encodeURIComponent(fioInp.value)}`), d = await r.json();
+        sugBox.innerHTML = d.map(n => `<div onclick="loadFio('${n}')">${n}</div>`).join('');
+        sugBox.style.display = d.length ? 'block' : 'none';
+    };
 
-let fioTimer = null;
-fioInput.addEventListener('input', () => {
-    if (fioTimer) clearTimeout(fioTimer);
-    fioTimer = setTimeout(async () => {
-        const q = fioInput.value.trim();
-        if (q.length < 2) {
-            fioHints.innerHTML = '';
-            return;
+    function loadFio(n) {
+        fioInp.value = n;
+        sugBox.style.display = 'none';
+        fetchData();
+    }
+
+    async function fetchData(isSilent = false) {
+        const fio = fioInp.value, per = document.getElementById('period').value;
+        if(!fio) return;
+        const resBox = document.getElementById('res');
+
+        if (!isSilent) {
+            resBox.innerHTML = '<div style="text-align:center; padding-top:100px; opacity:0.5;">Загрузка данных...</div>';
         }
-        const hints = await requestJson(`/search_fio?q=${encodeURIComponent(q)}`);
-        fioHints.innerHTML = (hints || []).map((fio) => `<option value="${fio}"></option>`).join('');
-    }, 180);
-});
 
-showBtn.addEventListener('click', async () => {
-    const fio = fioInput.value.trim();
-    const period = periodSelect.value;
-    if (!fio || !period) {
-        resultHeader.textContent = 'Введите ФИО и выберите месяц';
-        daysWrap.innerHTML = '';
-        return;
-    }
+        try {
+            const r = await fetch(`/status_month?fio=${encodeURIComponent(fio)}&period=${per}`);
+            const data = await r.json();
+            if(data.error) {
+                if (!isSilent) resBox.innerHTML = `<div style="text-align:center; color:var(--red); padding-top:100px;">Данные не найдены</div>`;
+                return;
+            }
 
-    showBtn.disabled = true;
-    showBtn.textContent = 'Загрузка...';
-    resultHeader.textContent = 'Загрузка данных...';
-    daysWrap.innerHTML = '';
+            document.getElementById('dep-name').innerText = data.department;
 
-    try {
-        const data = await requestJson(`/status_month?fio=${encodeURIComponent(fio)}&period=${encodeURIComponent(period)}`);
-        if (data.error) {
-            resultHeader.textContent = 'Данные не найдены';
-            return;
+            const now = new Date();
+            const year = 2000 + parseInt(per.split('_')[0]);
+            const month = parseInt(per.split('_')[1]);
+
+            let startDay = new Date(year, month - 1, 1).getDay();
+            startDay = (startDay === 0) ? 7 : startDay;
+
+            const isCurrMonth = (now.getFullYear() === year && (now.getMonth() + 1) === month);
+
+            let html = `
+                <div style="display:flex; flex-direction:column; height:100%;">
+                    <div style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:10px; opacity:0.5; margin-bottom:8px; font-weight:800;">
+                        <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div>
+                    </div>
+                    <div class="calendar-grid">`;
+
+            for(let i = 1; i < startDay; i++) html += `<div></div>`;
+
+            data.days.forEach(d => {
+                const isToday = isCurrMonth && d.day === now.getDate();
+                html += `
+                    <div class="day ${d.color} ${isToday ? 'today' : ''}">
+                        <div class="day-n">${d.day}</div>
+                        <div class="day-l">${d.label}</div>
+                    </div>`;
+            });
+
+            resBox.innerHTML = html + `</div></div>`;
+        } catch(e) {
+            if (!isSilent) resBox.innerHTML = `<div style="text-align:center; color:var(--red); padding-top:100px;">Ошибка сервера</div>`;
         }
-        resultHeader.textContent = `${data.fio} | ${data.department}`;
-        daysWrap.innerHTML = (data.days || []).map((d) => `
-            <div class="col-6 col-md-4 col-lg-3">
-                <div class="border rounded p-2 h-100 bg-white">
-                    <div class="small text-muted">День ${d.day}</div>
-                    <div>${d.label}</div>
-                </div>
-            </div>
-        `).join('');
-    } catch (err) {
-        resultHeader.textContent = `Ошибка запроса: ${err.message}`;
-    } finally {
-        showBtn.disabled = false;
-        showBtn.textContent = 'Показать';
     }
-});
+
+    document.onclick = (e) => { if(!fioInp.contains(e.target)) sugBox.style.display='none'; };
+
+    // --- ФОНОВОЕ ОБНОВЛЕНИЕ ПАНЕЛЕЙ (КАЖДЫЕ 5 СЕКУНД) ---
+    setInterval(async () => {
+        try {
+            // Запрашиваем актуальные статусы руководителей
+            const r = await fetch('/api/leaders');
+            if (r.ok) {
+                const leadersData = await r.json();
+
+                // Перебираем категории и руководителей
+                for (const cat in leadersData) {
+                    leadersData[cat].forEach(l => {
+                        // Ищем элемент слева или справа по ФИО (поэтому мы добавили data-fio)
+                        const el = document.querySelector(`.leader-item[data-fio="${l.fio}"]`);
+
+                        if (el) {
+                            // Перекрашиваем кружок без перезагрузки страницы
+                            el.className = `leader-item ${l.status_cls}`;
+                        }
+                    });
+                }
+            }
+            // Если по центру открыт табель, обновляем и его (тихо)
+            if (fioInp.value) {
+                fetchData(true);
+            }
+        } catch (e) {
+            console.log("Не удалось обновить данные в фоне", e);
+        }
+    }, 5000);
 </script>
 </body>
 </html>

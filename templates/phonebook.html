@@ -770,7 +770,7 @@
                     class="contact-row contact-item"
                     data-dept="{{ c.dept|default('', true) }}"
                     data-group=""
-                    data-search="{{ (c.surname ~ ' ' ~ c.name ~ ' ' ~ c.pos ~ ' ' ~ c.dept ~ ' ' ~ c.work ~ ' ' ~ c.mobile ~ ' ' ~ c.home)|lower }}">
+                    data-search="{{ (c.surname ~ ' ' ~ c.name ~ ' ' ~ c.pos ~ ' ' ~ c.dept ~ ' ' ~ c.work ~ (' ' ~ c.mobile if can_view_private_phones else '') ~ (' ' ~ c.home if can_view_private_phones else ''))|lower }}">
                     <div>
                         <p class="contact-name">{{ c.surname }} {{ c.name }}</p>
                         <p class="contact-pos">{{ c.pos }}</p>
@@ -778,9 +778,9 @@
                     <div class="contact-dept">{{ c.dept }}</div>
                     <div class="contact-phones">
                         {% if c.work %}<a href="tel:{{ c.work }}" class="phone-link"><i class="fa-solid fa-briefcase"></i> {{ c.work }}</a>{% endif %}
-                        {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="phone-link"><i class="fa-solid fa-mobile-screen-button"></i> {{ c.mobile }}</a>{% endif %}
-                        {% if c.home %}<a href="tel:{{ c.home }}" class="phone-link home"><i class="fa-solid fa-house"></i> {{ c.home }}</a>{% endif %}
-                        {% if not c.work and not c.mobile and not c.home %}<span class="text-muted small">—</span>{% endif %}
+                        {% if can_view_private_phones and c.mobile %}<a href="tel:{{ c.mobile }}" class="phone-link"><i class="fa-solid fa-mobile-screen-button"></i> {{ c.mobile }}</a>{% endif %}
+                        {% if can_view_private_phones and c.home %}<a href="tel:{{ c.home }}" class="phone-link home"><i class="fa-solid fa-house"></i> {{ c.home }}</a>{% endif %}
+                        {% if not c.work and not (can_view_private_phones and c.mobile) and not (can_view_private_phones and c.home) %}<span class="text-muted small">—</span>{% endif %}
                     </div>
                 </div>
                 {% endfor %}

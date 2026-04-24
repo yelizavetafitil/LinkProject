@@ -72,6 +72,11 @@ APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
 _ad_groups_cache = {}
+LEADERSHIP_AD_GROUPS = {
+    group_name.strip().lower()
+    for group_name in os.environ.get('LEADERSHIP_AD_GROUPS', '').split(',')
+    if group_name.strip()
+}
 TABEL_BASE_DIR = os.environ.get('TABEL_BASE_DIR', r'\\srv-doc\ТАБЕЛЬ')
 TABEL_LEADERS_FILE = os.environ.get('TABEL_LEADERS_FILE', r'\\srv-doc\ТАБЕЛЬ\ОЦ\Список руководителей.xlsx')
 TABEL_SHEET_NAME = os.environ.get('TABEL_SHEET_NAME', 'Табель_3')
@@ -386,6 +391,18 @@ def get_phonebook_contacts():
     return _phonebook_cache
 
 
+def can_view_extended_phonebook(username):
+    login = normalize_ad_username(username)
+    if not login:
+        return False
+    if login in MASTER_ADMINS:
+        return True
+    if not LEADERSHIP_AD_GROUPS:
+        return False
+    user_groups = {group.strip().lower() for group in get_user_ad_groups_by_username(login)}
+    return bool(user_groups.intersection(LEADERSHIP_AD_GROUPS))
+
+
 def init_db():
     with get_db_connection() as conn:
         # 1. Проверяем/Обновляем таблицу ресурсов (удаляем старый столбец access_group_id если он мешает)
@@ -584,9 +601,17 @@ def manage_categories_page():
 def phonebook_page():
     if not session.get('logged_in'):
         return redirect(url_for('login_page'))
-    is_admin = session.get('username') in MASTER_ADMINS
+    username = session.get('username')
+    is_admin = username in MASTER_ADMINS
+    can_view_private_phones = can_view_extended_phonebook(username)
     contacts = get_phonebook_contacts()
-    return render_template('phonebook.html', is_admin=is_admin, user=session.get('username'), contacts=contacts)
+    return render_template(
+        'phonebook.html',
+        is_admin=is_admin,
+        user=username,
+        contacts=contacts,
+        can_view_private_phones=can_view_private_phones
+    )
 
 
 @app.route('/meeting-rooms')
