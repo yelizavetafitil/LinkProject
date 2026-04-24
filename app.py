@@ -72,11 +72,6 @@ APP_TZ = ZoneInfo('Europe/Minsk')
 _phonebook_cache = None
 _phonebook_mtime = None
 _ad_groups_cache = {}
-LEADERSHIP_AD_GROUPS = {
-    group_name.strip().lower()
-    for group_name in os.environ.get('LEADERSHIP_AD_GROUPS', '').split(',')
-    if group_name.strip()
-}
 TABEL_BASE_DIR = os.environ.get('TABEL_BASE_DIR', r'\\srv-doc\ТАБЕЛЬ')
 TABEL_LEADERS_FILE = os.environ.get('TABEL_LEADERS_FILE', r'\\srv-doc\ТАБЕЛЬ\ОЦ\Список руководителей.xlsx')
 TABEL_SHEET_NAME = os.environ.get('TABEL_SHEET_NAME', 'Табель_3')
@@ -397,10 +392,45 @@ def can_view_extended_phonebook(username):
         return False
     if login in MASTER_ADMINS:
         return True
-    if not LEADERSHIP_AD_GROUPS:
-        return False
+    return _has_privileged_entity_access(login, 'phonebook_privileged_entities')
+
+
+def _has_privileged_entity_access(login, table_name):
     user_groups = {group.strip().lower() for group in get_user_ad_groups_by_username(login)}
-    return bool(user_groups.intersection(LEADERSHIP_AD_GROUPS))
+    conn = get_db_connection()
+    try:
+        entity_rows = conn.execute(
+            f'SELECT entity_type, entity_login FROM {table_name}'
+        ).fetchall()
+    finally:
+        conn.close()
+    if not entity_rows:
+        return False
+    allowed_users = set()
+    allowed_groups = set()
+    for row in entity_rows:
+        entity_type = (row['entity_type'] or '').strip().lower()
+        entity_login = (row['entity_login'] or '').strip().lower()
+        if not entity_login:
+            continue
+        if entity_type == 'group':
+            allowed_groups.add(entity_login)
+        else:
+            allowed_users.add(entity_login)
+    if login in allowed_users:
+        return True
+    if user_groups.intersection(allowed_groups):
+        return True
+    return False
+
+
+def can_manage_all_bookings(username):
+    login = normalize_ad_username(username)
+    if not login:
+        return False
+    if login in MASTER_ADMINS:
+        return True
+    return _has_privileged_entity_access(login, 'booking_privileged_entities')
 
 
 def init_db():
@@ -470,6 +500,32 @@ def init_db():
                 details_json TEXT NOT NULL,
                 FOREIGN KEY(booking_id) REFERENCES meeting_bookings(id)
             )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS phonebook_privileged_users (
+                username TEXT PRIMARY KEY
+            )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS phonebook_privileged_entities (
+                entity_type TEXT NOT NULL,
+                entity_login TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_login)
+            )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS booking_privileged_entities (
+                entity_type TEXT NOT NULL,
+                entity_login TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_login)
+            )''')
+        # Миграция старого формата (только пользователи) в новый универсальный справочник.
+        legacy_rows = conn.execute('SELECT username FROM phonebook_privileged_users').fetchall()
+        for row in legacy_rows:
+            legacy_login = normalize_ad_username(row['username'])
+            if not legacy_login:
+                continue
+            conn.execute(
+                'INSERT OR IGNORE INTO phonebook_privileged_entities (entity_type, entity_login) VALUES (?, ?)',
+                ('user', legacy_login)
+            )
         booking_columns = conn.execute("PRAGMA table_info(meeting_bookings)").fetchall()
         booking_column_names = {row['name'] for row in booking_columns}
         if 'participants_json' not in booking_column_names:
@@ -1142,7 +1198,7 @@ def update_meeting_booking(booking_id):
         if booking['booking_status'] == 'canceled':
             return jsonify(success=False, error='Отмененную бронь редактировать нельзя'), 409
         current_user = session.get('username')
-        if current_user not in MASTER_ADMINS and booking['owner_username'] != current_user:
+        if not can_manage_all_bookings(current_user) and booking['owner_username'] != current_user:
             return jsonify(success=False, error='Редактировать можно только свои брони'), 403
         room_exists = conn.execute('SELECT 1 FROM meeting_rooms WHERE id = ?', (payload['room_id'],)).fetchone()
         if not room_exists:
@@ -1197,7 +1253,7 @@ def delete_meeting_booking(booking_id):
         if not booking:
             return jsonify(success=False, error='Бронь не найдена'), 404
         current_user = session.get('username')
-        if current_user not in MASTER_ADMINS and booking['owner_username'] != current_user:
+        if not can_manage_all_bookings(current_user) and booking['owner_username'] != current_user:
             return jsonify(success=False, error='Можно отменять только свои брони'), 403
         if booking['booking_status'] == 'canceled':
             return jsonify(success=False, error='Бронь уже отменена'), 409
@@ -1234,7 +1290,7 @@ def delete_meeting_booking(booking_id):
         email_warning = ''
         should_notify_owner = (
             booking_info is not None and
-            current_user in MASTER_ADMINS and
+            can_manage_all_bookings(current_user) and
             booking_info['owner_username'] != current_user
         )
         if should_notify_owner:
@@ -1617,6 +1673,116 @@ def manage_group():
             for m in data.get('members', []):
                 if m.strip(): conn.execute('INSERT INTO group_members (group_id, username) VALUES (?, ?)',
                                            (gid, m.strip().lower()))
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/phonebook-access')
+def get_phonebook_access_users():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            '''
+            SELECT entity_type, entity_login
+            FROM phonebook_privileged_entities
+            ORDER BY entity_type ASC, entity_login COLLATE NOCASE
+            '''
+        ).fetchall()
+        payload = [
+            {'type': row['entity_type'], 'login': row['entity_login']}
+            for row in rows
+        ]
+        return jsonify(payload)
+    finally:
+        conn.close()
+
+
+@app.route('/manage_phonebook_access', methods=['POST'])
+def manage_phonebook_access():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False), 403
+    payload = request.json or {}
+    action = (payload.get('action') or '').strip()
+    entity_type = (payload.get('type') or 'user').strip().lower()
+    raw_login = payload.get('username')
+    if entity_type == 'group':
+        entity_login = str(raw_login or '').strip().lower()
+    else:
+        entity_type = 'user'
+        entity_login = normalize_ad_username(raw_login)
+    if action not in ('add', 'delete'):
+        return jsonify(success=False, error='Неизвестное действие'), 400
+    if not entity_login:
+        return jsonify(success=False, error='Укажите пользователя'), 400
+    conn = get_db_connection()
+    try:
+        if action == 'add':
+            conn.execute(
+                'INSERT OR IGNORE INTO phonebook_privileged_entities (entity_type, entity_login) VALUES (?, ?)',
+                (entity_type, entity_login)
+            )
+        else:
+            conn.execute(
+                'DELETE FROM phonebook_privileged_entities WHERE entity_type = ? AND entity_login = ?',
+                (entity_type, entity_login)
+            )
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/booking-access')
+def get_booking_access_entities():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            '''
+            SELECT entity_type, entity_login
+            FROM booking_privileged_entities
+            ORDER BY entity_type ASC, entity_login COLLATE NOCASE
+            '''
+        ).fetchall()
+        return jsonify([{'type': row['entity_type'], 'login': row['entity_login']} for row in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/manage_booking_access', methods=['POST'])
+def manage_booking_access():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False), 403
+    payload = request.json or {}
+    action = (payload.get('action') or '').strip()
+    entity_type = (payload.get('type') or 'user').strip().lower()
+    raw_login = payload.get('username')
+    if entity_type == 'group':
+        entity_login = str(raw_login or '').strip().lower()
+    else:
+        entity_type = 'user'
+        entity_login = normalize_ad_username(raw_login)
+    if action not in ('add', 'delete'):
+        return jsonify(success=False, error='Неизвестное действие'), 400
+    if not entity_login:
+        return jsonify(success=False, error='Укажите пользователя или группу'), 400
+    conn = get_db_connection()
+    try:
+        if action == 'add':
+            conn.execute(
+                'INSERT OR IGNORE INTO booking_privileged_entities (entity_type, entity_login) VALUES (?, ?)',
+                (entity_type, entity_login)
+            )
+        else:
+            conn.execute(
+                'DELETE FROM booking_privileged_entities WHERE entity_type = ? AND entity_login = ?',
+                (entity_type, entity_login)
+            )
         conn.commit()
         return jsonify(success=True)
     finally:

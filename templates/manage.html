@@ -336,6 +336,36 @@
         </div>
         <div id="gList"></div>
     </div></div>
+    <div class="col-12"><div class="panel groups-panel">
+        <div class="groups-toolbar">
+            <div class="section-title"><i data-lucide="shield"></i> Расширенный доступ к телефону</div>
+            <div class="small text-muted">По умолчанию у всех только служебный номер. Добавленные пользователи видят все номера.</div>
+        </div>
+        <div class="ad-search-box">
+            <span class="ad-search-icon"><i data-lucide="search" size="16"></i></span>
+            <input type="text" id="phonebookAccessSearch" class="form-control ad-search-input" placeholder="Найти пользователя или группу в AD..." oninput="searchPhonebookAccessAD()">
+        </div>
+        <div id="phonebookAccessSearchResults" class="ad-results-list"></div>
+        <div class="mt-3">
+            <div class="small fw-bold text-uppercase text-muted mb-2">Добавленные пользователи и группы AD</div>
+            <div id="phonebookAccessList" class="member-list"></div>
+        </div>
+    </div></div>
+    <div class="col-12"><div class="panel groups-panel">
+        <div class="groups-toolbar">
+            <div class="section-title"><i data-lucide="calendar-check"></i> Расширенный доступ к бронированию</div>
+            <div class="small text-muted">Добавленные пользователи и группы AD могут редактировать и отменять чужие бронирования.</div>
+        </div>
+        <div class="ad-search-box">
+            <span class="ad-search-icon"><i data-lucide="search" size="16"></i></span>
+            <input type="text" id="bookingAccessSearch" class="form-control ad-search-input" placeholder="Найти пользователя или группу в AD..." oninput="searchBookingAccessAD()">
+        </div>
+        <div id="bookingAccessSearchResults" class="ad-results-list"></div>
+        <div class="mt-3">
+            <div class="small fw-bold text-uppercase text-muted mb-2">Добавленные пользователи и группы AD</div>
+            <div id="bookingAccessList" class="member-list"></div>
+        </div>
+    </div></div>
 </div></div>
 
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
@@ -360,6 +390,8 @@
     function renderIcons() {
         const iconPaths = {
             users: '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path>',
+            shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+            'calendar-check': '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><polyline points="9 16 11 18 15 14"></polyline>',
             search: '<circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line>',
             'trash-2': '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path>',
             'chevron-left': '<polyline points="15 18 9 12 15 6"></polyline>',
@@ -375,6 +407,8 @@
     }
     renderIcons();
     let groupsState = [];
+    let phonebookAccessState = [];
+    let bookingAccessState = [];
     let confirmDeleteModal;
     let confirmDeleteResolver = null;
 
@@ -495,9 +529,130 @@
         await fetch('/manage_group', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id:id})});
         loadG();
     }
+
+    function renderPhonebookAccessList() {
+        const list = document.getElementById('phonebookAccessList');
+        if (!phonebookAccessState.length) {
+            list.innerHTML = '<div class="small text-muted">Пока никого не добавили.</div>';
+            return;
+        }
+        list.innerHTML = phonebookAccessState.map((entry) => `
+            <div class="member-chip">
+                <span>${escapeHtml(entry.login)} (${entry.type === 'group' ? 'группа AD' : 'юзер'})</span>
+                <button class="chip-remove" title="Удалить доступ" onclick="removePhonebookAccess('${encodeURIComponent(entry.login)}','${entry.type}')">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    async function loadPhonebookAccess() {
+        const response = await fetch('/api/phonebook-access');
+        phonebookAccessState = await response.json();
+        renderPhonebookAccessList();
+    }
+
+    async function searchPhonebookAccessAD() {
+        const q = document.getElementById('phonebookAccessSearch').value.trim();
+        const resDiv = document.getElementById('phonebookAccessSearchResults');
+        if (q.length < 2) {
+            resDiv.innerHTML = '';
+            return;
+        }
+        const response = await fetch(`/get_ad_entities?q=${encodeURIComponent(q)}`);
+        const results = await response.json();
+        resDiv.innerHTML = results.map((item) => `
+            <div class="ad-entry" onclick="addPhonebookAccess('${encodeURIComponent(item.login)}','${item.type === 'Группа AD' ? 'group' : 'user'}')">
+                <div><div class="fw-bold small">${escapeHtml(item.name)}</div><div class="text-muted" style="font-size:11px">${escapeHtml(item.login)}</div></div>
+                <span class="badge-ad ${item.type=='Юзер'?'user-type':'group-type'}">${item.type}</span>
+            </div>
+        `).join('');
+    }
+
+    async function addPhonebookAccess(encodedLogin, entityType) {
+        const login = decodeURIComponent(encodedLogin).toLowerCase();
+        await fetch('/manage_phonebook_access', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'add', username: login, type: entityType})
+        });
+        document.getElementById('phonebookAccessSearch').value = '';
+        document.getElementById('phonebookAccessSearchResults').innerHTML = '';
+        await loadPhonebookAccess();
+    }
+
+    async function removePhonebookAccess(encodedLogin, entityType) {
+        const login = decodeURIComponent(encodedLogin).toLowerCase();
+        await fetch('/manage_phonebook_access', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'delete', username: login, type: entityType})
+        });
+        await loadPhonebookAccess();
+    }
+
+    function renderBookingAccessList() {
+        const list = document.getElementById('bookingAccessList');
+        if (!bookingAccessState.length) {
+            list.innerHTML = '<div class="small text-muted">Пока никого не добавили.</div>';
+            return;
+        }
+        list.innerHTML = bookingAccessState.map((entry) => `
+            <div class="member-chip">
+                <span>${escapeHtml(entry.login)} (${entry.type === 'group' ? 'группа AD' : 'юзер'})</span>
+                <button class="chip-remove" title="Удалить доступ" onclick="removeBookingAccess('${encodeURIComponent(entry.login)}','${entry.type}')">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    async function loadBookingAccess() {
+        const response = await fetch('/api/booking-access');
+        bookingAccessState = await response.json();
+        renderBookingAccessList();
+    }
+
+    async function searchBookingAccessAD() {
+        const q = document.getElementById('bookingAccessSearch').value.trim();
+        const resDiv = document.getElementById('bookingAccessSearchResults');
+        if (q.length < 2) {
+            resDiv.innerHTML = '';
+            return;
+        }
+        const response = await fetch(`/get_ad_entities?q=${encodeURIComponent(q)}`);
+        const results = await response.json();
+        resDiv.innerHTML = results.map((item) => `
+            <div class="ad-entry" onclick="addBookingAccess('${encodeURIComponent(item.login)}','${item.type === 'Группа AD' ? 'group' : 'user'}')">
+                <div><div class="fw-bold small">${escapeHtml(item.name)}</div><div class="text-muted" style="font-size:11px">${escapeHtml(item.login)}</div></div>
+                <span class="badge-ad ${item.type=='Юзер'?'user-type':'group-type'}">${item.type}</span>
+            </div>
+        `).join('');
+    }
+
+    async function addBookingAccess(encodedLogin, entityType) {
+        const login = decodeURIComponent(encodedLogin).toLowerCase();
+        await fetch('/manage_booking_access', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'add', username: login, type: entityType})
+        });
+        document.getElementById('bookingAccessSearch').value = '';
+        document.getElementById('bookingAccessSearchResults').innerHTML = '';
+        await loadBookingAccess();
+    }
+
+    async function removeBookingAccess(encodedLogin, entityType) {
+        const login = decodeURIComponent(encodedLogin).toLowerCase();
+        await fetch('/manage_booking_access', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'delete', username: login, type: entityType})
+        });
+        await loadBookingAccess();
+    }
+
     window.onload = async () => {
         initConfirmDeleteModal();
         await loadG();
+        await loadPhonebookAccess();
+        await loadBookingAccess();
     };
 </script>
 </body>
