@@ -413,7 +413,7 @@
 
     </style>
 </head>
-<body class="{{ 'is-admin' if is_admin else '' }}">
+<body class="{{ 'is-admin' if can_manage_resources else '' }}">
 
 <nav class="navbar">
     <div class="container d-flex justify-content-between align-items-center">
@@ -423,6 +423,8 @@
             {% if is_admin %}
                 <a href="/manage" class="btn btn-outline-secondary btn-sm topbar-btn">Администрирование</a>
                 <a href="/manage/categories" class="btn btn-outline-secondary btn-sm topbar-btn">Разделы</a>
+            {% endif %}
+            {% if can_manage_resources %}
                 <button class="btn btn-primary btn-sm topbar-btn" data-bs-toggle="modal" data-bs-target="#addModal">+ Добавить ресурс</button>
             {% endif %}
             <a href="/logout" class="btn btn-light btn-sm topbar-icon-btn"><i data-lucide="log-out" size="16"></i></a>
@@ -439,7 +441,7 @@
     </div>
 </div>
 
-{% if is_admin %}
+{% if can_manage_resources %}
 <div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h6 class="modal-title fw-bold">Добавление ресурса</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><form id="addForm" novalidate>
@@ -553,7 +555,7 @@
         });
     }
     renderIcons();
-    const isAdmin = {{ 'true' if is_admin else 'false' }};
+    const canManageResources = {{ 'true' if can_manage_resources else 'false' }};
     let allResources = [];
     let allCategories = [];
     const DEFAULT_RESOURCE_ICON = "data:image/svg+xml;utf8," + encodeURIComponent(
@@ -600,7 +602,7 @@
                 <div class="resource-grid sortable-list">
                     ${allResources.filter(r => r.category === cat).map(item => `
                         <div class="resource-card" data-id="${item.id}">
-                            ${isAdmin ? `<div class="admin-hud"><button type="button" class="hud-btn" onclick="openEdit(${item.id})"><i data-lucide="settings" size="13"></i></button><button type="button" class="hud-btn btn-delete" onclick="delItem(${item.id})"><i data-lucide="trash-2" size="13"></i></button></div>` : ''}
+                            ${canManageResources ? `<div class="admin-hud"><button type="button" class="hud-btn" onclick="openEdit(${item.id})"><i data-lucide="settings" size="13"></i></button><button type="button" class="hud-btn btn-delete" onclick="delItem(${item.id})"><i data-lucide="trash-2" size="13"></i></button></div>` : ''}
                             <a href="${item.url}" target="_blank" class="card-link">
                                 <div class="icon-container">
                                     ${getResourceIconName(item)
@@ -616,7 +618,7 @@
                 </div>
             </div>`).join('');
         renderIcons();
-        if (isAdmin) document.querySelectorAll('.sortable-list').forEach(l => new Sortable(l, { group: 'shared', animation: 150, onEnd: saveOrder }));
+        if (canManageResources) document.querySelectorAll('.sortable-list').forEach(l => new Sortable(l, { group: 'shared', animation: 150, onEnd: saveOrder }));
     }
 
     async function loadGroups() {
@@ -634,7 +636,7 @@
             </div>
             ${optionsHtml}
         `;
-        if(isAdmin) {
+        if(canManageResources) {
             document.getElementById('addGroups').innerHTML = html;
             document.getElementById('editGroups').innerHTML = html;
             bindGroupInputs('addGroups');
@@ -803,7 +805,7 @@
         loadResources();
     }
 
-    if (isAdmin) {
+    if (canManageResources) {
         document.getElementById('addForm').onsubmit = async (e) => {
             e.preventDefault();
             const addUrlInput = e.target.querySelector('input[name="url"]');

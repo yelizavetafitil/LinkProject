@@ -433,6 +433,15 @@ def can_manage_all_bookings(username):
     return _has_privileged_entity_access(login, 'booking_privileged_entities')
 
 
+def can_manage_resources(username):
+    login = normalize_ad_username(username)
+    if not login:
+        return False
+    if login in MASTER_ADMINS:
+        return True
+    return _has_privileged_entity_access(login, 'resource_privileged_entities')
+
+
 def init_db():
     with get_db_connection() as conn:
         # 1. Проверяем/Обновляем таблицу ресурсов (удаляем старый столбец access_group_id если он мешает)
@@ -512,6 +521,12 @@ def init_db():
             )''')
         conn.execute('''
             CREATE TABLE IF NOT EXISTS booking_privileged_entities (
+                entity_type TEXT NOT NULL,
+                entity_login TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_login)
+            )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS resource_privileged_entities (
                 entity_type TEXT NOT NULL,
                 entity_login TEXT NOT NULL,
                 PRIMARY KEY (entity_type, entity_login)
@@ -617,8 +632,15 @@ def check_ldap_auth(username, password):
 @app.route('/')
 def index():
     if not session.get('logged_in'): return redirect(url_for('login_page'))
-    is_admin = session.get('username') in MASTER_ADMINS
-    return render_template('index.html', is_admin=is_admin, user=session.get('username'))
+    username = session.get('username')
+    is_admin = username in MASTER_ADMINS
+    can_manage_resources_flag = can_manage_resources(username)
+    return render_template(
+        'index.html',
+        is_admin=is_admin,
+        can_manage_resources=can_manage_resources_flag,
+        user=username
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -1479,7 +1501,7 @@ def get_resources():
 
 @app.route('/add', methods=['POST'])
 def add_resource():
-    if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
+    if not can_manage_resources(session.get('username')): return jsonify(success=False), 403
     t = request.form.get('title')
     u = normalize_resource_url(request.form.get('url'))
     c_existing = (request.form.get('category_existing') or '').strip()
@@ -1507,7 +1529,7 @@ def add_resource():
 
 @app.route('/edit/<int:res_id>', methods=['POST'])
 def edit_resource(res_id):
-    if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
+    if not can_manage_resources(session.get('username')): return jsonify(success=False), 403
     t = request.form.get('title')
     u = normalize_resource_url(request.form.get('url'))
     c_existing = (request.form.get('category_existing') or '').strip()
@@ -1534,7 +1556,7 @@ def edit_resource(res_id):
 
 @app.route('/delete/<int:res_id>', methods=['POST'])
 def delete_resource(res_id):
-    if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
+    if not can_manage_resources(session.get('username')): return jsonify(success=False), 403
     conn = get_db_connection()
     try:
         conn.execute("DELETE FROM resources WHERE id=?", (res_id,))
@@ -1547,7 +1569,7 @@ def delete_resource(res_id):
 
 @app.route('/reorder', methods=['POST'])
 def reorder():
-    if session.get('username') not in MASTER_ADMINS: return jsonify(success=False), 403
+    if not can_manage_resources(session.get('username')): return jsonify(success=False), 403
     conn = get_db_connection()
     try:
         for index, entry in enumerate(request.json):
@@ -1781,6 +1803,59 @@ def manage_booking_access():
         else:
             conn.execute(
                 'DELETE FROM booking_privileged_entities WHERE entity_type = ? AND entity_login = ?',
+                (entity_type, entity_login)
+            )
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/resource-access')
+def get_resource_access_entities():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            '''
+            SELECT entity_type, entity_login
+            FROM resource_privileged_entities
+            ORDER BY entity_type ASC, entity_login COLLATE NOCASE
+            '''
+        ).fetchall()
+        return jsonify([{'type': row['entity_type'], 'login': row['entity_login']} for row in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/manage_resource_access', methods=['POST'])
+def manage_resource_access():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False), 403
+    payload = request.json or {}
+    action = (payload.get('action') or '').strip()
+    entity_type = (payload.get('type') or 'user').strip().lower()
+    raw_login = payload.get('username')
+    if entity_type == 'group':
+        entity_login = str(raw_login or '').strip().lower()
+    else:
+        entity_type = 'user'
+        entity_login = normalize_ad_username(raw_login)
+    if action not in ('add', 'delete'):
+        return jsonify(success=False, error='Неизвестное действие'), 400
+    if not entity_login:
+        return jsonify(success=False, error='Укажите пользователя или группу'), 400
+    conn = get_db_connection()
+    try:
+        if action == 'add':
+            conn.execute(
+                'INSERT OR IGNORE INTO resource_privileged_entities (entity_type, entity_login) VALUES (?, ?)',
+                (entity_type, entity_login)
+            )
+        else:
+            conn.execute(
+                'DELETE FROM resource_privileged_entities WHERE entity_type = ? AND entity_login = ?',
                 (entity_type, entity_login)
             )
         conn.commit()
