@@ -488,6 +488,18 @@ def _knowledge_base_collect_files(category_name):
     return sorted(file_items, key=lambda item: item['path'].lower())
 
 
+def _knowledge_base_collect_all_files():
+    items = []
+    for category in _knowledge_base_collect_categories():
+        for file_item in _knowledge_base_collect_files(category):
+            items.append({
+                'category': category,
+                'name': file_item.get('name', ''),
+                'path': file_item.get('path', '')
+            })
+    return items
+
+
 def _knowledge_base_resolve_file_path(category_name, relative_file_path):
     category_path = _knowledge_base_resolve_category_path(category_name)
     if not category_path:
@@ -1003,6 +1015,22 @@ def knowledge_base_files():
     if not category:
         return jsonify([]), 400
     return jsonify(_knowledge_base_collect_files(category))
+
+
+@app.route('/api/knowledge-base/search')
+def knowledge_base_search():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    query = (request.args.get('q') or '').strip().lower()
+    all_items = _knowledge_base_collect_all_files()
+    if not query:
+        return jsonify(all_items)
+    filtered = []
+    for item in all_items:
+        haystack = f"{item.get('category', '')} {item.get('path', '')} {item.get('name', '')}".lower()
+        if query in haystack:
+            filtered.append(item)
+    return jsonify(filtered)
 
 
 @app.route('/knowledge-base/view/<path:category_name>/<path:file_path>')

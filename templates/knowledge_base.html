@@ -61,85 +61,50 @@
         .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
         .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
         .page-wrap { margin: 0 auto; padding: 22px 0 30px; }
-        .layout {
-            display: grid;
-            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-            gap: 16px;
-            align-items: start;
-        }
         .panel {
-            background: rgba(255, 255, 255, 0.82);
-            border: 1px solid rgba(205, 220, 243, 0.88);
-            border-radius: 14px;
-            backdrop-filter: blur(3px);
-            box-shadow: var(--card-shadow);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 252, 255, 0.86) 100%);
+            border: 1px solid rgba(201, 218, 243, 0.9);
+            border-radius: 16px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 12px 28px rgba(21, 45, 84, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            padding: 18px;
         }
-        .sidebar {
-            padding: 14px;
-            position: sticky;
-            top: 82px;
-            max-height: calc(100vh - 105px);
-            overflow-y: auto;
+        .browse-hero {
+            margin-bottom: 16px;
         }
-        .sidebar-title {
-            margin: 0 0 10px;
-            color: #335b90;
-            font-size: 13px;
+        .browse-title {
+            margin: 0;
+            color: #244874;
+            font-size: 27px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
         }
-        .category-list { display: grid; gap: 8px; }
-        .category-item {
-            width: 100%;
-            text-align: left;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            background: #fff;
-            color: #2a4b78;
-            padding: 10px 12px;
+        .browse-subtitle {
+            margin: 8px 0 0;
+            color: #6b81a2;
+            font-size: 14px;
+        }
+        /* как на index.html: иконка и placeholder по одной линии */
+        .search-container {
+            max-width: 620px;
+            margin: 0 auto;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            font-size: 13px;
-            box-shadow: 0 3px 10px rgba(17, 46, 90, 0.06);
-            transition: 0.15s ease;
-        }
-        .category-item:hover {
-            border-color: #92b6e6;
-            box-shadow: 0 8px 14px rgba(17, 46, 90, 0.12);
-            transform: translateY(-1px);
-        }
-        .category-item.active {
-            border-color: var(--primary);
-            background: #eef5ff;
-            box-shadow: 0 0 0 3px rgba(28, 79, 156, 0.12);
-        }
-        .category-count {
-            background: #dce8fb;
-            color: #194783;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 8px;
-            white-space: nowrap;
-        }
-        .content { padding: 16px; min-height: 68vh; }
-        .toolbar {
-            display: grid;
-            grid-template-columns: 1fr;
             gap: 10px;
-            margin-bottom: 12px;
-        }
-        .search-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #fff;
+            background: rgba(255, 255, 255, 0.9);
             border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 0 14px;
+            padding: 0 16px 0 18px;
+            box-shadow: 0 8px 20px rgba(17, 46, 90, 0.1);
+            transition: 0.2s;
+        }
+        .search-container.kb-wide {
+            max-width: 760px;
+        }
+        .search-container:focus-within {
+            border-color: #94b4e4;
+            box-shadow: 0 0 0 3px rgba(98, 141, 209, 0.14), 0 10px 20px rgba(17, 46, 90, 0.12);
         }
         .search-icon-wrap {
             flex-shrink: 0;
@@ -149,39 +114,204 @@
             color: #8aa1bf;
             line-height: 0;
         }
-        .search-input {
+        .search-icon-wrap svg { display: block; }
+        .search-bar {
             flex: 1 1 auto;
-            border: none;
-            outline: none;
-            padding: 10px 0;
-            background: transparent;
-            color: var(--text);
+            min-width: 0;
+            width: auto;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 12px 0;
             font-size: 14px;
+            line-height: 1.4;
+            color: var(--text);
+        }
+        .search-bar::placeholder { color: #97aac4; }
+        .search-bar:focus { outline: none; box-shadow: none !important; }
+        .file-panel .search-container {
+            max-width: none;
+            margin-bottom: 10px;
+        }
+        .search-results {
+            margin-top: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #dbe7f8;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .search-item {
+            padding: 9px 10px;
+            border-bottom: 1px solid #edf3fb;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background: #f6faff; }
+        .search-item small { color: #6b81a2; }
+        .categories-title {
+            margin: 16px 0 12px;
+            color: #335b90;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            align-items: stretch;
+            margin-top: 8px;
+        }
+        .category-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: linear-gradient(145deg, #ffffff 0%, #f9fcff 100%);
+            box-shadow: 0 10px 22px rgba(21, 45, 84, 0.12);
+            padding: 16px 16px 14px;
+            cursor: pointer;
+            transition: 0.22s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            text-align: center;
+            min-height: 192px;
+            position: relative;
+            overflow: hidden;
+        }
+        .category-card::after {
+            content: "";
+            position: absolute;
+            width: 130px;
+            height: 130px;
+            right: -42px;
+            bottom: -52px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(90, 142, 222, 0.16) 0%, rgba(90, 142, 222, 0) 72%);
+            pointer-events: none;
+            transition: opacity 0.22s ease;
+            opacity: 0.55;
+        }
+        .category-card:hover {
+            border-color: #98b8e5;
+            box-shadow: 0 14px 28px rgba(17, 46, 90, 0.16);
+            transform: translateY(-2px);
+        }
+        .category-card:hover::after {
+            opacity: 0.8;
+        }
+        .category-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            border: 1px solid #dce7f7;
+            background: linear-gradient(180deg, #f6f9ff 0%, #eef4ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3567a7;
+            line-height: 0;
+            margin-bottom: 14px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 4px 10px rgba(54, 97, 167, 0.14);
+        }
+        .category-meta {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        .category-card strong {
+            color: #2a4b78;
+            font-size: 18px;
+            display: block;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            margin: 0 0 8px;
+            line-height: 1.2;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            text-transform: none;
+        }
+        .category-card .count {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #2f578c;
+            font-size: 11px;
+            font-weight: 600;
+            background: #eaf2ff;
+            border: 1px solid #cfe0fb;
+            border-radius: 999px;
+            padding: 2px 8px;
+        }
+        .category-go {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: auto 0 0;
+            height: 38px;
+            min-width: 142px;
+            border-radius: 10px;
+            border: 1px solid var(--primary);
+            background: linear-gradient(180deg, #2e67b7 0%, #1c4f9c 100%);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 0 14px;
+            vertical-align: middle;
+            transition: 0.18s ease;
+            line-height: 1;
+            box-shadow: 0 8px 14px rgba(28, 79, 156, 0.24);
+        }
+        .category-card:hover .category-go {
+            background: linear-gradient(180deg, #3c74c6 0%, #2a65c0 100%);
+            border-color: var(--primary-soft);
+            box-shadow: 0 8px 14px rgba(28, 79, 156, 0.26);
+        }
+        .category-go:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.16), 0 8px 14px rgba(28, 79, 156, 0.26);
+        }
+        .reader-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .reader-title { margin: 0; font-size: 15px; color: #2a4b78; }
+        .reader-back {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            color: #25518c;
+            font-size: 13px;
+            padding: 5px 10px;
         }
         .kb-split {
             display: grid;
-            grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-            gap: 12px;
+            grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+            gap: 16px;
             align-items: start;
+            margin-top: 10px;
         }
         .files-panel {
-            border: 1px solid #dbe7f8;
+            border: 1px solid #cfdff5;
             border-radius: 12px;
-            background: #fff;
+            background: #f7fbff;
             overflow: hidden;
-        }
-        .files-list {
-            border: 1px solid #dbe7f8;
-            border-radius: 0;
-            border-width: 0;
-            overflow: hidden;
-            background: #fff;
-            max-height: 68vh;
+            max-height: 74vh;
             overflow-y: auto;
+            box-shadow: 0 6px 14px rgba(17, 46, 90, 0.1);
         }
         .file-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto auto;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: 10px;
             align-items: center;
             padding: 10px 12px;
@@ -196,7 +326,7 @@
             color: #294b79;
             font-size: 13px;
         }
-        .file-btn {
+        .file-download {
             border: 1px solid var(--border);
             border-radius: 8px;
             background: #f7fbff;
@@ -205,16 +335,17 @@
             padding: 5px 9px;
             text-decoration: none;
         }
-        .file-btn:hover { background: #eaf3ff; border-color: #a6c4e9; }
+        .file-download:hover { background: #eaf3ff; border-color: #a6c4e9; }
         .viewer-wrap {
-            border: 1px solid #dbe7f8;
+            border: 1px solid #c8d9f2;
             border-radius: 12px;
             background: #fff;
-            min-height: 68vh;
+            min-height: 74vh;
             overflow: hidden;
+            box-shadow: 0 10px 20px rgba(17, 46, 90, 0.12);
         }
         .viewer-empty {
-            min-height: 68vh;
+            min-height: 74vh;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -225,22 +356,49 @@
         }
         .pdf-frame {
             width: 100%;
-            height: 68vh;
+            height: 74vh;
             border: 0;
             display: none;
         }
+        .hidden { display: none !important; }
         @media (max-width: 1200px) {
-            .kb-split {
+            .browse-title {
+                font-size: 26px;
+            }
+            .category-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+            .category-card {
+                min-height: 180px;
+            }
+            .kb-split { grid-template-columns: 1fr; }
+            .files-panel { max-height: 38vh; }
+            .viewer-wrap, .viewer-empty, .pdf-frame { min-height: 50vh; height: 50vh; }
+        }
+        @media (max-width: 760px) {
+            .browse-title {
+                font-size: 22px;
+            }
+            .category-grid {
                 grid-template-columns: 1fr;
             }
-            .files-list {
-                max-height: 38vh;
+            .category-card {
+                min-height: 152px;
+                padding: 14px 14px 12px;
             }
-            .viewer-wrap,
-            .viewer-empty,
-            .pdf-frame {
-                min-height: 50vh;
-                height: 50vh;
+            .category-icon {
+                width: 40px;
+                height: 40px;
+                margin-bottom: 10px;
+            }
+            .category-go {
+                height: 34px;
+                min-width: 128px;
+                font-size: 12px;
+            }
+            .category-card strong {
+                font-size: 18px;
             }
         }
     </style>
@@ -258,54 +416,70 @@
 </nav>
 
 <div class="container page-wrap">
-    <div class="layout">
-        <aside class="panel sidebar">
-            <h6 class="sidebar-title">Категории базы знаний</h6>
-            <div id="categoryList" class="category-list">
-                {% for category in categories %}
-                <button class="category-item" data-category="{{ category }}" type="button">
-                    <span>{{ category }}</span>
-                    <span class="category-count">...</span>
-                </button>
-                {% endfor %}
-            </div>
-        </aside>
+    <section id="browsePanel" class="panel">
+        <div class="browse-hero">
+            <h2 class="browse-title">Полезные ресурсы</h2>
+            <p class="browse-subtitle">Выберите нужный раздел для получения информации</p>
+        </div>
+        <div class="search-container kb-wide">
+            <span class="search-icon-wrap" aria-hidden="true"><i data-lucide="search" size="18"></i></span>
+            <input id="globalSearch" class="search-bar" type="text" placeholder="Поиск по всем документам базы знаний..." autocomplete="off">
+        </div>
+        <div id="globalSearchResults" class="search-results hidden"></div>
+        <div id="categoryGrid" class="category-grid">
+            {% for category in categories %}
+            <button class="category-card" data-category="{{ category }}" type="button">
+                <span class="category-icon"><i data-lucide="folder" size="16"></i></span>
+                <span class="category-meta">
+                    <strong>{{ category }}</strong>
+                    <span class="count">Файлов: ...</span>
+                </span>
+                <span class="category-go">Перейти</span>
+            </button>
+            {% endfor %}
+        </div>
+    </section>
 
-        <section class="panel content">
-            <div class="toolbar">
-                <div class="search-wrap">
-                    <span class="search-icon-wrap"><i data-lucide="search" size="16"></i></span>
-                    <input id="fileSearch" class="search-input" type="text" placeholder="Поиск по PDF файлам выбранной категории...">
-                </div>
-                <div id="currentCategory" class="small text-muted">Выберите категорию слева</div>
+    <section id="readerPanel" class="panel hidden">
+        <div class="reader-header">
+            <h6 id="readerTitle" class="reader-title">Категория</h6>
+            <button id="backToCategories" type="button" class="reader-back">← К категориям</button>
+        </div>
+        <div class="search-container">
+            <span class="search-icon-wrap" aria-hidden="true"><i data-lucide="search" size="18"></i></span>
+            <input id="fileSearch" class="search-bar" type="text" placeholder="Поиск по документам категории..." autocomplete="off">
+        </div>
+        <div class="kb-split">
+            <div id="filesList" class="files-panel"></div>
+            <div class="viewer-wrap">
+                <div id="viewerEmpty" class="viewer-empty">Выберите PDF-файл из списка слева, чтобы открыть его для чтения.</div>
+                <iframe id="pdfFrame" class="pdf-frame"></iframe>
             </div>
-            <div class="kb-split">
-                <div class="files-panel">
-                    <div id="filesList" class="files-list"></div>
-                </div>
-                <div class="viewer-wrap">
-                    <div id="viewerEmpty" class="viewer-empty">Выберите PDF-файл из списка, чтобы открыть его для чтения.</div>
-                    <iframe id="pdfFrame" class="pdf-frame"></iframe>
-                </div>
-            </div>
-        </section>
-    </div>
+        </div>
+    </section>
 </div>
 
 <script>
-    const categoryListEl = document.getElementById('categoryList');
-    const currentCategoryEl = document.getElementById('currentCategory');
+    const browsePanelEl = document.getElementById('browsePanel');
+    const readerPanelEl = document.getElementById('readerPanel');
+    const categoryGridEl = document.getElementById('categoryGrid');
+    const readerTitleEl = document.getElementById('readerTitle');
+    const backToCategoriesEl = document.getElementById('backToCategories');
+    const globalSearchEl = document.getElementById('globalSearch');
+    const globalSearchResultsEl = document.getElementById('globalSearchResults');
     const filesListEl = document.getElementById('filesList');
     const fileSearchEl = document.getElementById('fileSearch');
     const pdfFrameEl = document.getElementById('pdfFrame');
     const viewerEmptyEl = document.getElementById('viewerEmpty');
 
+    let allDocuments = [];
     let selectedCategory = '';
     let allFiles = [];
 
     function renderIcons() {
         const iconPaths = {
-            search: '<circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line>'
+            search: '<circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line>',
+            folder: '<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>'
         };
         document.querySelectorAll('[data-lucide]').forEach((el) => {
             const name = el.getAttribute('data-lucide');
@@ -330,17 +504,36 @@
         if (!response.ok) return;
         const categories = await response.json();
         const countByName = new Map(categories.map((item) => [item.name, item.files_count]));
-        document.querySelectorAll('.category-item').forEach((button) => {
+        document.querySelectorAll('.category-card').forEach((button) => {
             const name = button.dataset.category;
             const count = countByName.get(name) || 0;
-            const countEl = button.querySelector('.category-count');
-            if (countEl) countEl.textContent = String(count);
+            const countEl = button.querySelector('.count');
+            if (countEl) countEl.textContent = `Файлов: ${count}`;
         });
+    }
+
+    async function loadAllDocuments() {
+        const response = await fetch('/api/knowledge-base/search', { cache: 'no-store' });
+        if (!response.ok) {
+            allDocuments = [];
+            return;
+        }
+        allDocuments = await response.json();
+    }
+
+    function showBrowsePanel() {
+        readerPanelEl.classList.add('hidden');
+        browsePanelEl.classList.remove('hidden');
+    }
+
+    function showReaderPanel() {
+        browsePanelEl.classList.add('hidden');
+        readerPanelEl.classList.remove('hidden');
     }
 
     async function loadFiles(categoryName) {
         selectedCategory = categoryName;
-        currentCategoryEl.textContent = `Категория: ${categoryName}`;
+        readerTitleEl.textContent = `Категория: ${categoryName}`;
         const response = await fetch(`/api/knowledge-base/files?category=${encodeURIComponent(categoryName)}`, { cache: 'no-store' });
         if (!response.ok) {
             allFiles = [];
@@ -364,8 +557,7 @@
             return `
                 <div class="file-row" data-view-url="${viewUrl}">
                     <div class="file-path">${escapeHtml(file.path)}</div>
-                    <button class="file-btn" type="button" onclick="openPdf('${viewUrl}')">Читать</button>
-                    <a class="file-btn" href="${downloadUrl}">Скачать</a>
+                    <a class="file-download" href="${downloadUrl}">Скачать</a>
                 </div>
             `;
         }).join('');
@@ -377,32 +569,70 @@
         viewerEmptyEl.style.display = 'none';
     }
 
-    categoryListEl.addEventListener('click', async (event) => {
-        const btn = event.target.closest('.category-item');
+    function renderGlobalSearchResults() {
+        const q = globalSearchEl.value.trim().toLowerCase();
+        if (!q) {
+            globalSearchResultsEl.classList.add('hidden');
+            globalSearchResultsEl.innerHTML = '';
+            return;
+        }
+        const results = allDocuments.filter((item) => {
+            const haystack = `${item.category} ${item.path} ${item.name}`.toLowerCase();
+            return haystack.includes(q);
+        }).slice(0, 40);
+        if (!results.length) {
+            globalSearchResultsEl.classList.remove('hidden');
+            globalSearchResultsEl.innerHTML = '<div class="search-item">Ничего не найдено.</div>';
+            return;
+        }
+        globalSearchResultsEl.classList.remove('hidden');
+        globalSearchResultsEl.innerHTML = results.map((item) => `
+            <div class="search-item" data-category="${escapeHtml(item.category)}" data-path="${escapeHtml(item.path)}">
+                <div><strong>${escapeHtml(item.name || item.path)}</strong></div>
+                <small>${escapeHtml(item.category)} / ${escapeHtml(item.path)}</small>
+            </div>
+        `).join('');
+    }
+
+    categoryGridEl.addEventListener('click', async (event) => {
+        const btn = event.target.closest('.category-card');
         if (!btn) return;
-        document.querySelectorAll('.category-item').forEach((item) => item.classList.remove('active'));
-        btn.classList.add('active');
+        showReaderPanel();
         await loadFiles(btn.dataset.category);
+    });
+
+    globalSearchResultsEl.addEventListener('click', async (event) => {
+        const item = event.target.closest('.search-item[data-category][data-path]');
+        if (!item) return;
+        const category = item.getAttribute('data-category');
+        const path = item.getAttribute('data-path');
+        showReaderPanel();
+        await loadFiles(category);
+        const viewUrl = `/knowledge-base/view/${encodeURIComponent(category)}/${path.split('/').map(encodeURIComponent).join('/')}`;
+        openPdf(viewUrl);
     });
 
     filesListEl.addEventListener('click', (event) => {
         const targetRow = event.target.closest('.file-row[data-view-url]');
         if (!targetRow) return;
-        // Кнопка "Скачать" работает как обычная ссылка без перехвата.
         if (event.target.closest('a')) return;
         openPdf(targetRow.dataset.viewUrl);
     });
 
-    fileSearchEl.addEventListener('input', () => renderFiles());
+    backToCategoriesEl.addEventListener('click', () => {
+        showBrowsePanel();
+        pdfFrameEl.src = '';
+        pdfFrameEl.style.display = 'none';
+        viewerEmptyEl.style.display = 'flex';
+    });
 
+    globalSearchEl.addEventListener('input', renderGlobalSearchResults);
+    fileSearchEl.addEventListener('input', () => renderFiles());
     window.addEventListener('load', async () => {
         renderIcons();
         await loadCategoriesMeta();
-        const firstCategory = document.querySelector('.category-item');
-        if (firstCategory) {
-            firstCategory.classList.add('active');
-            await loadFiles(firstCategory.dataset.category);
-        }
+        await loadAllDocuments();
+        showBrowsePanel();
     });
 </script>
 </body>
