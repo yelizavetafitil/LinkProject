@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from datetime import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, session, jsonify, redirect, url_for, send_from_directory, send_file
 import pandas as pd
 import openpyxl
 try:
@@ -92,6 +92,11 @@ TABEL_LEADERS_CACHE = {}
 TABEL_LEADERS_MTIME = 0.0
 TABEL_LAST_SCAN_TS = 0.0
 TABEL_SCAN_INTERVAL_SEC = 180
+KNOWLEDGE_BASE_ROOT = os.environ.get('KNOWLEDGE_BASE_ROOT', os.path.join(app.root_path, 'БАЗА ЗНАНИЙ'))
+KNOWLEDGE_BASE_INSTRUCTIONS_DIR = os.environ.get(
+    'KNOWLEDGE_BASE_INSTRUCTIONS_DIR',
+    KNOWLEDGE_BASE_ROOT
+)
 
 
 def normalize_resource_url(raw_url):
@@ -442,6 +447,62 @@ def can_manage_resources(username):
     return _has_privileged_entity_access(login, 'resource_privileged_entities')
 
 
+def _knowledge_base_collect_categories():
+    categories = []
+    base_path = os.path.realpath(KNOWLEDGE_BASE_INSTRUCTIONS_DIR)
+    if not os.path.isdir(base_path):
+        return categories
+    for name in os.listdir(base_path):
+        full_path = os.path.join(base_path, name)
+        if not os.path.isdir(full_path):
+            continue
+        categories.append(name)
+    return sorted(categories, key=lambda item: item.lower())
+
+
+def _knowledge_base_resolve_category_path(category_name):
+    base_path = os.path.realpath(KNOWLEDGE_BASE_INSTRUCTIONS_DIR)
+    category_path = os.path.realpath(os.path.join(base_path, category_name))
+    if not category_path.startswith(base_path + os.sep):
+        return None
+    if not os.path.isdir(category_path):
+        return None
+    return category_path
+
+
+def _knowledge_base_collect_files(category_name):
+    category_path = _knowledge_base_resolve_category_path(category_name)
+    if not category_path:
+        return []
+    file_items = []
+    for root, _, files in os.walk(category_path):
+        for filename in files:
+            if not filename.lower().endswith('.pdf'):
+                continue
+            full_path = os.path.join(root, filename)
+            rel_path = os.path.relpath(full_path, category_path).replace('\\', '/')
+            file_items.append({
+                'name': filename,
+                'path': rel_path
+            })
+    return sorted(file_items, key=lambda item: item['path'].lower())
+
+
+def _knowledge_base_resolve_file_path(category_name, relative_file_path):
+    category_path = _knowledge_base_resolve_category_path(category_name)
+    if not category_path:
+        return None
+    normalized_rel = (relative_file_path or '').replace('\\', '/').strip('/')
+    if not normalized_rel or not normalized_rel.lower().endswith('.pdf'):
+        return None
+    target_path = os.path.realpath(os.path.join(category_path, normalized_rel))
+    if not target_path.startswith(category_path + os.sep):
+        return None
+    if not os.path.isfile(target_path):
+        return None
+    return target_path
+
+
 def init_db():
     with get_db_connection() as conn:
         # 1. Проверяем/Обновляем таблицу ресурсов (удаляем старый столбец access_group_id если он мешает)
@@ -723,6 +784,18 @@ def gym_booking_page():
     )
 
 
+@app.route('/knowledge-base')
+def knowledge_base_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    categories = _knowledge_base_collect_categories()
+    return render_template(
+        'knowledge_base.html',
+        user=session.get('username'),
+        categories=categories
+    )
+
+
 @app.route('/tabel')
 def tabel_page():
     if not session.get('logged_in'):
@@ -907,6 +980,49 @@ def tabel_status_month_compat():
     if not session.get('logged_in'):
         return jsonify({'error': 'unauthorized'}), 403
     return tabel_status_month()
+
+
+@app.route('/api/knowledge-base/categories')
+def knowledge_base_categories():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    payload = []
+    for category in _knowledge_base_collect_categories():
+        payload.append({
+            'name': category,
+            'files_count': len(_knowledge_base_collect_files(category))
+        })
+    return jsonify(payload)
+
+
+@app.route('/api/knowledge-base/files')
+def knowledge_base_files():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    category = (request.args.get('category') or '').strip()
+    if not category:
+        return jsonify([]), 400
+    return jsonify(_knowledge_base_collect_files(category))
+
+
+@app.route('/knowledge-base/view/<path:category_name>/<path:file_path>')
+def knowledge_base_view_file(category_name, file_path):
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    target_path = _knowledge_base_resolve_file_path(category_name, file_path)
+    if not target_path:
+        return jsonify(success=False, error='Файл не найден'), 404
+    return send_file(target_path, mimetype='application/pdf')
+
+
+@app.route('/knowledge-base/download/<path:category_name>/<path:file_path>')
+def knowledge_base_download_file(category_name, file_path):
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    target_path = _knowledge_base_resolve_file_path(category_name, file_path)
+    if not target_path:
+        return jsonify(success=False, error='Файл не найден'), 404
+    return send_file(target_path, as_attachment=True, download_name=os.path.basename(target_path))
 
 
 @app.route('/api/meeting-rooms')
@@ -1865,6 +1981,7 @@ def manage_resource_access():
 
 
 if __name__ == '__main__':
+    os.makedirs(KNOWLEDGE_BASE_INSTRUCTIONS_DIR, exist_ok=True)
     init_db()
     _tabel_load_cache()
     _tabel_rebuild_index_from_cache()

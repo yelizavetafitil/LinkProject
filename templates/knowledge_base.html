@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>База знаний | РУП Белнипиэнергопром</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1c4f9c;
+            --primary-soft: #2a65c0;
+            --bg: #edf3fb;
+            --text: #1c2f4b;
+            --muted-text: #667f9f;
+            --border: #d8e2f0;
+            --card-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+        }
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.18) 0%, rgba(130, 230, 255, 0) 48%),
+                linear-gradient(180deg, rgba(8, 26, 72, 0.56) 0%, rgba(8, 26, 72, 0.66) 100%),
+                url("{{ url_for('project_asset', filename='back4.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(20, 42, 75, 0.06);
+        }
+        .logo img { height: 40px; width: auto; display: block; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .topbar-user { font-size: 15px; color: #4d678b; margin-right: 4px; }
+        .topbar-btn {
+            height: 40px;
+            border-radius: 10px !important;
+            padding: 0 16px !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .btn-outline-secondary {
+            color: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline-secondary:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
+        .page-wrap { margin: 0 auto; padding: 22px 0 30px; }
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+        }
+        .sidebar {
+            padding: 14px;
+            position: sticky;
+            top: 82px;
+            max-height: calc(100vh - 105px);
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            margin: 0 0 10px;
+            color: #335b90;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .category-list { display: grid; gap: 8px; }
+        .category-item {
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: #2a4b78;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 13px;
+            box-shadow: 0 3px 10px rgba(17, 46, 90, 0.06);
+            transition: 0.15s ease;
+        }
+        .category-item:hover {
+            border-color: #92b6e6;
+            box-shadow: 0 8px 14px rgba(17, 46, 90, 0.12);
+            transform: translateY(-1px);
+        }
+        .category-item.active {
+            border-color: var(--primary);
+            background: #eef5ff;
+            box-shadow: 0 0 0 3px rgba(28, 79, 156, 0.12);
+        }
+        .category-count {
+            background: #dce8fb;
+            color: #194783;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            white-space: nowrap;
+        }
+        .content { padding: 16px; min-height: 68vh; }
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0 14px;
+        }
+        .search-icon-wrap {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8aa1bf;
+            line-height: 0;
+        }
+        .search-input {
+            flex: 1 1 auto;
+            border: none;
+            outline: none;
+            padding: 10px 0;
+            background: transparent;
+            color: var(--text);
+            font-size: 14px;
+        }
+        .kb-split {
+            display: grid;
+            grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+        .files-panel {
+            border: 1px solid #dbe7f8;
+            border-radius: 12px;
+            background: #fff;
+            overflow: hidden;
+        }
+        .files-list {
+            border: 1px solid #dbe7f8;
+            border-radius: 0;
+            border-width: 0;
+            overflow: hidden;
+            background: #fff;
+            max-height: 68vh;
+            overflow-y: auto;
+        }
+        .file-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf3fb;
+            cursor: pointer;
+        }
+        .file-row:last-child { border-bottom: none; }
+        .file-row:hover { background: #f6faff; }
+        .file-path {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            color: #294b79;
+            font-size: 13px;
+        }
+        .file-btn {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f7fbff;
+            color: #25518c;
+            font-size: 12px;
+            padding: 5px 9px;
+            text-decoration: none;
+        }
+        .file-btn:hover { background: #eaf3ff; border-color: #a6c4e9; }
+        .viewer-wrap {
+            border: 1px solid #dbe7f8;
+            border-radius: 12px;
+            background: #fff;
+            min-height: 68vh;
+            overflow: hidden;
+        }
+        .viewer-empty {
+            min-height: 68vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #6f86a6;
+            font-size: 14px;
+            padding: 20px;
+        }
+        .pdf-frame {
+            width: 100%;
+            height: 68vh;
+            border: 0;
+            display: none;
+        }
+        @media (max-width: 1200px) {
+            .kb-split {
+                grid-template-columns: 1fr;
+            }
+            .files-list {
+                max-height: 38vh;
+            }
+            .viewer-wrap,
+            .viewer-empty,
+            .pdf-frame {
+                min-height: 50vh;
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип компании"></a>
+        <div class="topbar-actions">
+            <span class="topbar-user fw-medium text-muted">{{ user }}</span>
+            <a href="/" class="btn btn-outline-secondary btn-sm topbar-btn">К ресурсам</a>
+            <a href="/logout" class="btn btn-light btn-sm topbar-btn">Выход</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container page-wrap">
+    <div class="layout">
+        <aside class="panel sidebar">
+            <h6 class="sidebar-title">Категории базы знаний</h6>
+            <div id="categoryList" class="category-list">
+                {% for category in categories %}
+                <button class="category-item" data-category="{{ category }}" type="button">
+                    <span>{{ category }}</span>
+                    <span class="category-count">...</span>
+                </button>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="panel content">
+            <div class="toolbar">
+                <div class="search-wrap">
+                    <span class="search-icon-wrap"><i data-lucide="search" size="16"></i></span>
+                    <input id="fileSearch" class="search-input" type="text" placeholder="Поиск по PDF файлам выбранной категории...">
+                </div>
+                <div id="currentCategory" class="small text-muted">Выберите категорию слева</div>
+            </div>
+            <div class="kb-split">
+                <div class="files-panel">
+                    <div id="filesList" class="files-list"></div>
+                </div>
+                <div class="viewer-wrap">
+                    <div id="viewerEmpty" class="viewer-empty">Выберите PDF-файл из списка, чтобы открыть его для чтения.</div>
+                    <iframe id="pdfFrame" class="pdf-frame"></iframe>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    const categoryListEl = document.getElementById('categoryList');
+    const currentCategoryEl = document.getElementById('currentCategory');
+    const filesListEl = document.getElementById('filesList');
+    const fileSearchEl = document.getElementById('fileSearch');
+    const pdfFrameEl = document.getElementById('pdfFrame');
+    const viewerEmptyEl = document.getElementById('viewerEmpty');
+
+    let selectedCategory = '';
+    let allFiles = [];
+
+    function renderIcons() {
+        const iconPaths = {
+            search: '<circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line>'
+        };
+        document.querySelectorAll('[data-lucide]').forEach((el) => {
+            const name = el.getAttribute('data-lucide');
+            const svgPath = iconPaths[name];
+            if (!svgPath) return;
+            const size = el.getAttribute('size') || 16;
+            el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgPath}</svg>`;
+        });
+    }
+
+    function escapeHtml(text) {
+        return String(text || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    async function loadCategoriesMeta() {
+        const response = await fetch('/api/knowledge-base/categories', { cache: 'no-store' });
+        if (!response.ok) return;
+        const categories = await response.json();
+        const countByName = new Map(categories.map((item) => [item.name, item.files_count]));
+        document.querySelectorAll('.category-item').forEach((button) => {
+            const name = button.dataset.category;
+            const count = countByName.get(name) || 0;
+            const countEl = button.querySelector('.category-count');
+            if (countEl) countEl.textContent = String(count);
+        });
+    }
+
+    async function loadFiles(categoryName) {
+        selectedCategory = categoryName;
+        currentCategoryEl.textContent = `Категория: ${categoryName}`;
+        const response = await fetch(`/api/knowledge-base/files?category=${encodeURIComponent(categoryName)}`, { cache: 'no-store' });
+        if (!response.ok) {
+            allFiles = [];
+            renderFiles();
+            return;
+        }
+        allFiles = await response.json();
+        renderFiles();
+    }
+
+    function renderFiles() {
+        const q = fileSearchEl.value.trim().toLowerCase();
+        const files = allFiles.filter((file) => !q || (file.path || '').toLowerCase().includes(q));
+        if (!files.length) {
+            filesListEl.innerHTML = '<div class="file-row"><div class="text-muted small">Файлы не найдены.</div></div>';
+            return;
+        }
+        filesListEl.innerHTML = files.map((file) => {
+            const viewUrl = `/knowledge-base/view/${encodeURIComponent(selectedCategory)}/${file.path.split('/').map(encodeURIComponent).join('/')}`;
+            const downloadUrl = `/knowledge-base/download/${encodeURIComponent(selectedCategory)}/${file.path.split('/').map(encodeURIComponent).join('/')}`;
+            return `
+                <div class="file-row" data-view-url="${viewUrl}">
+                    <div class="file-path">${escapeHtml(file.path)}</div>
+                    <button class="file-btn" type="button" onclick="openPdf('${viewUrl}')">Читать</button>
+                    <a class="file-btn" href="${downloadUrl}">Скачать</a>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openPdf(url) {
+        pdfFrameEl.src = url;
+        pdfFrameEl.style.display = 'block';
+        viewerEmptyEl.style.display = 'none';
+    }
+
+    categoryListEl.addEventListener('click', async (event) => {
+        const btn = event.target.closest('.category-item');
+        if (!btn) return;
+        document.querySelectorAll('.category-item').forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        await loadFiles(btn.dataset.category);
+    });
+
+    filesListEl.addEventListener('click', (event) => {
+        const targetRow = event.target.closest('.file-row[data-view-url]');
+        if (!targetRow) return;
+        // Кнопка "Скачать" работает как обычная ссылка без перехвата.
+        if (event.target.closest('a')) return;
+        openPdf(targetRow.dataset.viewUrl);
+    });
+
+    fileSearchEl.addEventListener('input', () => renderFiles());
+
+    window.addEventListener('load', async () => {
+        renderIcons();
+        await loadCategoriesMeta();
+        const firstCategory = document.querySelector('.category-item');
+        if (firstCategory) {
+            firstCategory.classList.add('active');
+            await loadFiles(firstCategory.dataset.category);
+        }
+    });
+</script>
+</body>
+</html>
