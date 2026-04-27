@@ -590,6 +590,7 @@ def init_db():
                 trip_date TEXT NOT NULL,
                 departure_time TEXT NOT NULL,
                 origin TEXT NOT NULL DEFAULT 'РУП «Белнипиэнергопром»',
+                route_stops TEXT DEFAULT '',
                 destination TEXT NOT NULL,
                 description TEXT,
                 trip_status TEXT NOT NULL DEFAULT 'active',
@@ -670,6 +671,9 @@ def init_db():
         if 'updated_at' not in driver_trip_column_names:
             conn.execute("ALTER TABLE driver_trips ADD COLUMN updated_at TEXT")
             conn.execute("UPDATE driver_trips SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
+        if 'route_stops' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN route_stops TEXT DEFAULT ''")
+            conn.execute("UPDATE driver_trips SET route_stops = '' WHERE route_stops IS NULL")
         # Синхронизируем справочник разделов с уже существующими ресурсами
         existing_categories = conn.execute(
             "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
@@ -1650,7 +1654,7 @@ def get_driver_trips():
     try:
         rows = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, trip_status, canceled_by, canceled_at
             FROM driver_trips
             ORDER BY trip_date ASC, departure_time ASC
@@ -1672,6 +1676,7 @@ def create_driver_trip():
         'trip_date': (data.get('trip_date') or '').strip(),
         'departure_time': (data.get('departure_time') or '').strip(),
         'origin': (data.get('origin') or 'РУП «Белнипиэнергопром»').strip() or 'РУП «Белнипиэнергопром»',
+        'route_stops': (data.get('route_stops') or '').strip(),
         'destination': (data.get('destination') or '').strip(),
         'description': (data.get('description') or '').strip()
     }
@@ -1693,10 +1698,10 @@ def create_driver_trip():
         conn.execute(
             '''
             INSERT INTO driver_trips (
-                vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                 owner_username, created_by
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (
                 payload['vehicle_model'],
@@ -1704,6 +1709,7 @@ def create_driver_trip():
                 payload['trip_date'],
                 payload['departure_time'],
                 payload['origin'],
+                payload['route_stops'],
                 payload['destination'],
                 payload['description'],
                 session.get('username'),
@@ -1713,7 +1719,7 @@ def create_driver_trip():
         trip_id = conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
         created_trip = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, trip_status, canceled_by, canceled_at
             FROM driver_trips
             WHERE id = ?
@@ -1740,6 +1746,7 @@ def update_driver_trip(trip_id):
         'trip_date': (data.get('trip_date') or '').strip(),
         'departure_time': (data.get('departure_time') or '').strip(),
         'origin': (data.get('origin') or 'РУП «Белнипиэнергопром»').strip() or 'РУП «Белнипиэнергопром»',
+        'route_stops': (data.get('route_stops') or '').strip(),
         'destination': (data.get('destination') or '').strip(),
         'description': (data.get('description') or '').strip()
     }
@@ -1759,7 +1766,7 @@ def update_driver_trip(trip_id):
     try:
         trip = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
             FROM driver_trips
             WHERE id = ?
@@ -1778,7 +1785,7 @@ def update_driver_trip(trip_id):
         conn.execute(
             '''
             UPDATE driver_trips
-            SET vehicle_model = ?, vehicle_color = ?, trip_date = ?, departure_time = ?, origin = ?, destination = ?,
+            SET vehicle_model = ?, vehicle_color = ?, trip_date = ?, departure_time = ?, origin = ?, route_stops = ?, destination = ?,
                 description = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             ''',
@@ -1788,6 +1795,7 @@ def update_driver_trip(trip_id):
                 payload['trip_date'],
                 payload['departure_time'],
                 payload['origin'],
+                payload['route_stops'],
                 payload['destination'],
                 payload['description'],
                 trip_id
@@ -1795,7 +1803,7 @@ def update_driver_trip(trip_id):
         )
         updated_trip = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
             FROM driver_trips
             WHERE id = ?
@@ -1821,7 +1829,7 @@ def cancel_driver_trip(trip_id):
     try:
         trip = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
             FROM driver_trips
             WHERE id = ?
@@ -1848,7 +1856,7 @@ def cancel_driver_trip(trip_id):
         )
         canceled_trip = conn.execute(
             '''
-            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, route_stops, destination, description,
                    created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
             FROM driver_trips
             WHERE id = ?

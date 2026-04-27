@@ -154,6 +154,35 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
         }
+        .stops-editor { display: grid; gap: 8px; }
+        .stops-input-row { display: flex; gap: 8px; align-items: center; }
+        .stops-input-row .form-control { flex: 1 1 auto; }
+        .stops-chips { min-height: 28px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .stop-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #edf4ff;
+            color: #1f4e94;
+            border: 1px solid #cfe0fb;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .stop-chip button {
+            border: 0;
+            background: transparent;
+            color: #5278ad;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 0;
+            cursor: pointer;
+        }
+        .stop-chip button:hover { color: #1f4e94; }
+        .stops-empty { font-size: 12px; color: #7a93b1; }
         .form-actions {
             display: flex;
             gap: 8px;
@@ -514,6 +543,20 @@
                         <input id="origin" class="form-control" value="РУП «Белнипиэнергопром»">
                     </div>
                     <div class="field-block">
+                        <label class="field-label">Промежуточные остановки (необязательно)</label>
+                        <div class="stops-editor">
+                            <div class="stops-input-row">
+                                <input id="routeStopDraft" class="form-control" placeholder="Введите город и нажмите Enter">
+                                <button id="addRouteStopBtn" class="btn btn-outline-secondary btn-sm" type="button">Добавить</button>
+                            </div>
+                            <input id="routeStops" type="hidden" value="">
+                            <div id="routeStopsChips" class="stops-chips">
+                                <span class="stops-empty">Остановки пока не добавлены</span>
+                            </div>
+                        </div>
+                        <p class="field-hint">Можно вводить по одной остановке или вставить список через запятую.</p>
+                    </div>
+                    <div class="field-block">
                         <label class="field-label">Куда</label>
                         <input id="destination" class="form-control" required placeholder="Например: Гродно">
                     </div>
@@ -652,6 +695,10 @@
     const vehicleModelInput = document.getElementById("vehicleModel");
     const vehicleColorInput = document.getElementById("vehicleColor");
     const originInput = document.getElementById("origin");
+    const routeStopDraftInput = document.getElementById("routeStopDraft");
+    const addRouteStopBtn = document.getElementById("addRouteStopBtn");
+    const routeStopsChips = document.getElementById("routeStopsChips");
+    const routeStopsInput = document.getElementById("routeStops");
     const destinationInput = document.getElementById("destination");
     const tripDateInput = document.getElementById("tripDate");
     const departureTimeInput = document.getElementById("departureTime");
@@ -690,6 +737,7 @@
     let infoModal;
     let infoHistoryHandler = null;
     let historyModal;
+    let routeStopsList = [];
 
     function escapeHtml(value) {
         return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -828,6 +876,8 @@
         editTripId = null;
         tripForm.reset();
         originInput.value = "РУП «Белнипиэнергопром»";
+        routeStopDraftInput.value = "";
+        setRouteStopsList("");
         vehicleColorInput.value = "#1f77b4";
         setFormMode(false);
     }
@@ -867,6 +917,82 @@
         return escapeHtml(value === null || value === undefined || value === "" ? "—" : String(value));
     }
 
+    function normalizeRouteStops(value) {
+        return String(value || "")
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join(", ");
+    }
+
+    function parseRouteStops(value) {
+        return String(value || "")
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean);
+    }
+
+    function syncRouteStopsHiddenValue() {
+        routeStopsInput.value = routeStopsList.join(", ");
+    }
+
+    function renderRouteStopsChips() {
+        if (!routeStopsList.length) {
+            routeStopsChips.innerHTML = '<span class="stops-empty">Остановки пока не добавлены</span>';
+            return;
+        }
+        routeStopsChips.innerHTML = routeStopsList.map((stop, idx) => `
+            <span class="stop-chip">
+                ${escapeHtml(stop)}
+                <button type="button" data-stop-index="${idx}" aria-label="Удалить остановку">&times;</button>
+            </span>
+        `).join("");
+        routeStopsChips.querySelectorAll("button[data-stop-index]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const idx = Number(btn.dataset.stopIndex);
+                if (!Number.isInteger(idx)) return;
+                routeStopsList.splice(idx, 1);
+                syncRouteStopsHiddenValue();
+                renderRouteStopsChips();
+            });
+        });
+    }
+
+    function setRouteStopsList(rawValue) {
+        const unique = [];
+        const seen = new Set();
+        parseRouteStops(rawValue).forEach((stop) => {
+            const key = stop.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            unique.push(stop);
+        });
+        routeStopsList = unique;
+        syncRouteStopsHiddenValue();
+        renderRouteStopsChips();
+    }
+
+    function addRouteStopsFromDraft() {
+        const draft = routeStopDraftInput.value.trim();
+        if (!draft) return;
+        const merged = [...routeStopsList, ...parseRouteStops(draft)];
+        setRouteStopsList(merged.join(", "));
+        routeStopDraftInput.value = "";
+        routeStopDraftInput.focus();
+    }
+
+    function buildRouteText(routeItem) {
+        const origin = String((routeItem && routeItem.origin) || "").trim();
+        const destination = String((routeItem && routeItem.destination) || "").trim();
+        const stops = normalizeRouteStops((routeItem && routeItem.route_stops) || "");
+        const routeParts = [origin];
+        if (stops) {
+            routeParts.push(stops);
+        }
+        routeParts.push(destination);
+        return routeParts.filter(Boolean).join(" -> ");
+    }
+
     function formatHistoryAction(action) {
         if (action === "created") return "Создан";
         if (action === "updated") return "Изменен";
@@ -882,6 +1008,7 @@
             <div>Дата: <strong>${escapeHistoryValue(snapshot.trip_date)}</strong></div>
             <div>Время: <strong>${escapeHistoryValue(snapshot.departure_time)}</strong></div>
             <div>Откуда: <strong>${escapeHistoryValue(snapshot.origin)}</strong></div>
+            <div>Остановки: <strong>${escapeHistoryValue(normalizeRouteStops(snapshot.route_stops))}</strong></div>
             <div>Куда: <strong>${escapeHistoryValue(snapshot.destination)}</strong></div>
             <div>Описание: <strong>${escapeHistoryValue(snapshot.description)}</strong></div>
             <div>Статус: <strong>${escapeHistoryValue(snapshot.trip_status)}</strong></div>
@@ -958,6 +1085,8 @@
         vehicleModelInput.value = tripItem.vehicle_model || "";
         vehicleColorInput.value = getTripColor(tripItem);
         originInput.value = tripItem.origin || "РУП «Белнипиэнергопром»";
+        routeStopDraftInput.value = "";
+        setRouteStopsList(tripItem.route_stops || "");
         destinationInput.value = tripItem.destination || "";
         tripDateInput.value = formatRuDate(tripItem.trip_date || "");
         departureTimeInput.value = tripItem.departure_time || "";
@@ -1019,11 +1148,12 @@
                 item.trip_date,
                 item.departure_time,
                 item.origin,
+                item.route_stops,
                 item.destination,
                 item.description,
                 item.owner_username,
                 item.created_by,
-                `${item.origin || ""} ${item.destination || ""}`
+                `${item.origin || ""} ${item.route_stops || ""} ${item.destination || ""}`
             ].join(" ");
             return normalizeSearchText(haystack).includes(q);
         });
@@ -1117,7 +1247,7 @@
                     ${data.trip_status === "canceled" ? '<div class="booking-event-line"><strong>ОТМЕНЕН</strong></div>' : ""}
                     <div class="booking-event-line"><strong>${escapeHtml(data.departure_time || "")}</strong></div>
                     <div class="booking-event-line"><strong>${escapeHtml(data.vehicle_model || "")}</strong></div>
-                    <div class="booking-event-line">${escapeHtml(data.origin || "")} -> ${escapeHtml(data.destination || "")}</div>
+                    <div class="booking-event-line">${escapeHtml(buildRouteText(data))}</div>
                     ${data.description ? `<div class="booking-event-line">${escapeHtml(data.description)}</div>` : ""}
                 `;
                 return { domNodes: [content] };
@@ -1189,6 +1319,7 @@
             trip_date: tripDateIso,
             departure_time: departureTime,
             origin: originInput.value.trim() || "РУП «Белнипиэнергопром»",
+            route_stops: normalizeRouteStops(routeStopsInput.value),
             destination: destinationInput.value.trim(),
             description: descriptionInput.value.trim()
         };
@@ -1260,6 +1391,16 @@
     cancelTripBtn.addEventListener("click", cancelTrip);
     historyBtn.addEventListener("click", () => openTripHistory(editTripId));
     cancelEditBtn.addEventListener("click", resetTripForm);
+    addRouteStopBtn.addEventListener("click", addRouteStopsFromDraft);
+    routeStopDraftInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === ",") {
+            event.preventDefault();
+            addRouteStopsFromDraft();
+        }
+    });
+    routeStopDraftInput.addEventListener("blur", () => {
+        addRouteStopsFromDraft();
+    });
 
     window.addEventListener("DOMContentLoaded", async () => {
         initModals();
