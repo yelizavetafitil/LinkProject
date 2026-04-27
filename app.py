@@ -583,6 +583,34 @@ def init_db():
                 FOREIGN KEY(booking_id) REFERENCES meeting_bookings(id)
             )''')
         conn.execute('''
+            CREATE TABLE IF NOT EXISTS driver_trips (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vehicle_model TEXT NOT NULL,
+                vehicle_color TEXT NOT NULL DEFAULT '#1f77b4',
+                trip_date TEXT NOT NULL,
+                departure_time TEXT NOT NULL,
+                origin TEXT NOT NULL DEFAULT 'РУП «Белнипиэнергопром»',
+                destination TEXT NOT NULL,
+                description TEXT,
+                trip_status TEXT NOT NULL DEFAULT 'active',
+                canceled_by TEXT,
+                canceled_at TEXT,
+                owner_username TEXT,
+                created_by TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS driver_trip_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                changed_by TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                details_json TEXT NOT NULL,
+                FOREIGN KEY(trip_id) REFERENCES driver_trips(id)
+            )''')
+        conn.execute('''
             CREATE TABLE IF NOT EXISTS phonebook_privileged_users (
                 username TEXT PRIMARY KEY
             )''')
@@ -625,6 +653,23 @@ def init_db():
             conn.execute("ALTER TABLE meeting_bookings ADD COLUMN canceled_by TEXT")
         if 'canceled_at' not in booking_column_names:
             conn.execute("ALTER TABLE meeting_bookings ADD COLUMN canceled_at TEXT")
+        driver_trip_columns = conn.execute("PRAGMA table_info(driver_trips)").fetchall()
+        driver_trip_column_names = {row['name'] for row in driver_trip_columns}
+        if 'vehicle_color' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN vehicle_color TEXT NOT NULL DEFAULT '#1f77b4'")
+        if 'trip_status' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN trip_status TEXT NOT NULL DEFAULT 'active'")
+            conn.execute("UPDATE driver_trips SET trip_status = 'active' WHERE trip_status IS NULL")
+        if 'canceled_by' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN canceled_by TEXT")
+        if 'canceled_at' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN canceled_at TEXT")
+        if 'owner_username' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN owner_username TEXT")
+            conn.execute("UPDATE driver_trips SET owner_username = created_by WHERE owner_username IS NULL OR owner_username = ''")
+        if 'updated_at' not in driver_trip_column_names:
+            conn.execute("ALTER TABLE driver_trips ADD COLUMN updated_at TEXT")
+            conn.execute("UPDATE driver_trips SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
         # Синхронизируем справочник разделов с уже существующими ресурсами
         existing_categories = conn.execute(
             "SELECT DISTINCT TRIM(category) AS category FROM resources WHERE TRIM(category) <> ''"
@@ -640,6 +685,22 @@ def init_db():
         default_rooms = ['Переговорка 1', 'Переговорка 2', 'Конференц-зал', GYM_ROOM_NAME]
         for room_name in default_rooms:
             conn.execute('INSERT OR IGNORE INTO meeting_rooms (name) VALUES (?)', (room_name,))
+        driver_resource_exists = conn.execute(
+            'SELECT 1 FROM resources WHERE TRIM(url) = ? LIMIT 1',
+            ('/driver-trips',)
+        ).fetchone()
+        if not driver_resource_exists:
+            conn.execute(
+                'INSERT INTO resources (title, url, category, desc, position) VALUES (?, ?, ?, ?, ?)',
+                (
+                    'Сервис водителей',
+                    '/driver-trips',
+                    'Сервисы',
+                    'Рейсы и командировки водителей за пределы г. Минска',
+                    0
+                )
+            )
+            conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', ('Сервисы',))
         conn.commit()
 def get_user_ad_groups(conn, user_dn):
     search_filter = f"(member:1.2.840.113556.1.4.1941:={user_dn})"
@@ -793,6 +854,19 @@ def gym_booking_page():
         user_display=session.get('display_name') or session.get('username'),
         single_room_mode=True,
         fixed_room_name=GYM_ROOM_NAME
+    )
+
+
+@app.route('/driver-trips')
+def driver_trips_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    current_user = session.get('username')
+    return render_template(
+        'driver_trips.html',
+        user_login=current_user,
+        user_display=session.get('display_name') or current_user,
+        can_manage_all=can_manage_all_bookings(current_user)
     )
 
 
@@ -1134,6 +1208,46 @@ def _is_booking_in_past(payload):
     return meeting_start < datetime.now()
 
 
+def _is_driver_trip_in_past(trip_date, departure_time):
+    try:
+        trip_start = datetime.strptime(f"{trip_date} {departure_time}", "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return False
+    return trip_start < datetime.now()
+
+
+def _driver_trip_has_conflict(conn, payload, trip_id=None):
+    """
+    Конфликт для одного авто считаем по фиксированному окну 2 часа от времени выезда.
+    """
+    try:
+        start_dt = datetime.strptime(f"{payload['trip_date']} {payload['departure_time']}", "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return False
+    end_dt = start_dt + timedelta(hours=2)
+    start_time = start_dt.strftime("%H:%M")
+    end_time = end_dt.strftime("%H:%M")
+    params = [
+        payload['vehicle_model'].strip().lower(),
+        payload['trip_date'],
+        end_time,
+        start_time
+    ]
+    query = '''
+        SELECT 1
+        FROM driver_trips
+        WHERE LOWER(TRIM(vehicle_model)) = ?
+          AND trip_date = ?
+          AND COALESCE(trip_status, 'active') = 'active'
+          AND NOT (? <= departure_time OR ? >= time(departure_time, '+2 hours'))
+    '''
+    if trip_id is not None:
+        query += ' AND id <> ?'
+        params.append(trip_id)
+    query += ' LIMIT 1'
+    return conn.execute(query, tuple(params)).fetchone() is not None
+
+
 def _get_booked_by_display_name():
     return (session.get('display_name') or session.get('username') or '').strip()
 
@@ -1183,6 +1297,29 @@ def _log_booking_history(conn, booking_id, action, changed_by, details_payload):
         ''',
         (
             booking_id,
+            action,
+            (changed_by or '').strip().lower(),
+            datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'),
+            safe_details
+        )
+    )
+
+
+def _serialize_driver_trip_state(trip_row):
+    if not trip_row:
+        return {}
+    return dict(trip_row)
+
+
+def _log_driver_trip_history(conn, trip_id, action, changed_by, details_payload):
+    safe_details = json.dumps(details_payload or {}, ensure_ascii=False)
+    conn.execute(
+        '''
+        INSERT INTO driver_trip_history (trip_id, action, changed_by, changed_at, details_json)
+        VALUES (?, ?, ?, ?, ?)
+        ''',
+        (
+            trip_id,
             action,
             (changed_by or '').strip().lower(),
             datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'),
@@ -1491,6 +1628,261 @@ def get_meeting_booking_history(booking_id):
             WHERE booking_id = ?
             ORDER BY id DESC
         ''', (booking_id,)).fetchall()
+        data = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item['details'] = json.loads(item.get('details_json') or '{}')
+            except (TypeError, json.JSONDecodeError):
+                item['details'] = {}
+            item.pop('details_json', None)
+            data.append(item)
+        return jsonify(data)
+    finally:
+        conn.close()
+
+
+@app.route('/api/driver-trips')
+def get_driver_trips():
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            ORDER BY trip_date ASC, departure_time ASC
+            '''
+        ).fetchall()
+        return jsonify([dict(row) for row in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/api/driver-trips', methods=['POST'])
+def create_driver_trip():
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    data = request.json or {}
+    payload = {
+        'vehicle_model': (data.get('vehicle_model') or '').strip(),
+        'vehicle_color': (data.get('vehicle_color') or '#1f77b4').strip(),
+        'trip_date': (data.get('trip_date') or '').strip(),
+        'departure_time': (data.get('departure_time') or '').strip(),
+        'origin': (data.get('origin') or 'РУП «Белнипиэнергопром»').strip() or 'РУП «Белнипиэнергопром»',
+        'destination': (data.get('destination') or '').strip(),
+        'description': (data.get('description') or '').strip()
+    }
+    if not all([payload['vehicle_model'], payload['trip_date'], payload['departure_time'], payload['destination']]):
+        return jsonify(success=False, error='Заполните обязательные поля рейса'), 400
+    try:
+        datetime.strptime(payload['trip_date'], '%Y-%m-%d')
+        datetime.strptime(payload['departure_time'], '%H:%M')
+    except ValueError:
+        return jsonify(success=False, error='Некорректная дата или время'), 400
+    if not re.match(r'^#[0-9a-fA-F]{6}$', payload['vehicle_color']):
+        return jsonify(success=False, error='Некорректный цвет автомобиля'), 400
+    if _is_driver_trip_in_past(payload['trip_date'], payload['departure_time']):
+        return jsonify(success=False, error='Нельзя создавать рейс на прошедшие дату и время'), 400
+    conn = get_db_connection()
+    try:
+        if _driver_trip_has_conflict(conn, payload):
+            return jsonify(success=False, error='Для выбранного авто есть пересечение по времени'), 409
+        conn.execute(
+            '''
+            INSERT INTO driver_trips (
+                vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                owner_username, created_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                payload['vehicle_model'],
+                payload['vehicle_color'],
+                payload['trip_date'],
+                payload['departure_time'],
+                payload['origin'],
+                payload['destination'],
+                payload['description'],
+                session.get('username'),
+                session.get('username')
+            )
+        )
+        trip_id = conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
+        created_trip = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            WHERE id = ?
+            ''',
+            (trip_id,)
+        ).fetchone()
+        _log_driver_trip_history(conn, trip_id, 'created', session.get('username'), {
+            'after': _serialize_driver_trip_state(created_trip)
+        })
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/driver-trips/<int:trip_id>', methods=['PUT'])
+def update_driver_trip(trip_id):
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    data = request.json or {}
+    payload = {
+        'vehicle_model': (data.get('vehicle_model') or '').strip(),
+        'vehicle_color': (data.get('vehicle_color') or '#1f77b4').strip(),
+        'trip_date': (data.get('trip_date') or '').strip(),
+        'departure_time': (data.get('departure_time') or '').strip(),
+        'origin': (data.get('origin') or 'РУП «Белнипиэнергопром»').strip() or 'РУП «Белнипиэнергопром»',
+        'destination': (data.get('destination') or '').strip(),
+        'description': (data.get('description') or '').strip()
+    }
+    if not all([payload['vehicle_model'], payload['trip_date'], payload['departure_time'], payload['destination']]):
+        return jsonify(success=False, error='Заполните обязательные поля рейса'), 400
+    try:
+        datetime.strptime(payload['trip_date'], '%Y-%m-%d')
+        datetime.strptime(payload['departure_time'], '%H:%M')
+    except ValueError:
+        return jsonify(success=False, error='Некорректная дата или время'), 400
+    if not re.match(r'^#[0-9a-fA-F]{6}$', payload['vehicle_color']):
+        return jsonify(success=False, error='Некорректный цвет автомобиля'), 400
+    if _is_driver_trip_in_past(payload['trip_date'], payload['departure_time']):
+        return jsonify(success=False, error='Нельзя редактировать рейс на прошедшие дату и время'), 400
+    current_user = session.get('username')
+    conn = get_db_connection()
+    try:
+        trip = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            WHERE id = ?
+            ''',
+            (trip_id,)
+        ).fetchone()
+        if not trip:
+            return jsonify(success=False, error='Рейс не найден'), 404
+        owner_login = trip['owner_username'] or trip['created_by']
+        if not can_manage_all_bookings(current_user) and owner_login != current_user:
+            return jsonify(success=False, error='Редактировать можно только свои рейсы'), 403
+        if trip['trip_status'] == 'canceled':
+            return jsonify(success=False, error='Отмененный рейс редактировать нельзя'), 409
+        if _driver_trip_has_conflict(conn, payload, trip_id=trip_id):
+            return jsonify(success=False, error='Для выбранного авто есть пересечение по времени'), 409
+        conn.execute(
+            '''
+            UPDATE driver_trips
+            SET vehicle_model = ?, vehicle_color = ?, trip_date = ?, departure_time = ?, origin = ?, destination = ?,
+                description = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            ''',
+            (
+                payload['vehicle_model'],
+                payload['vehicle_color'],
+                payload['trip_date'],
+                payload['departure_time'],
+                payload['origin'],
+                payload['destination'],
+                payload['description'],
+                trip_id
+            )
+        )
+        updated_trip = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            WHERE id = ?
+            ''',
+            (trip_id,)
+        ).fetchone()
+        _log_driver_trip_history(conn, trip_id, 'updated', current_user, {
+            'before': _serialize_driver_trip_state(trip),
+            'after': _serialize_driver_trip_state(updated_trip)
+        })
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/driver-trips/<int:trip_id>', methods=['DELETE'])
+def cancel_driver_trip(trip_id):
+    if not session.get('logged_in'):
+        return jsonify(success=False), 403
+    current_user = session.get('username')
+    conn = get_db_connection()
+    try:
+        trip = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            WHERE id = ?
+            ''',
+            (trip_id,)
+        ).fetchone()
+        if not trip:
+            return jsonify(success=False, error='Рейс не найден'), 404
+        owner_login = trip['owner_username'] or trip['created_by']
+        if not can_manage_all_bookings(current_user) and owner_login != current_user:
+            return jsonify(success=False, error='Можно отменять только свои рейсы'), 403
+        if trip['trip_status'] == 'canceled':
+            return jsonify(success=False, error='Рейс уже отменен'), 409
+        conn.execute(
+            '''
+            UPDATE driver_trips
+            SET trip_status = 'canceled',
+                canceled_by = ?,
+                canceled_at = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            ''',
+            (current_user, datetime.now(APP_TZ).strftime('%Y-%m-%d %H:%M:%S'), trip_id)
+        )
+        canceled_trip = conn.execute(
+            '''
+            SELECT id, vehicle_model, vehicle_color, trip_date, departure_time, origin, destination, description,
+                   created_by, owner_username, COALESCE(trip_status, 'active') AS trip_status, canceled_by, canceled_at
+            FROM driver_trips
+            WHERE id = ?
+            ''',
+            (trip_id,)
+        ).fetchone()
+        _log_driver_trip_history(conn, trip_id, 'canceled', current_user, {
+            'before': _serialize_driver_trip_state(trip),
+            'after': _serialize_driver_trip_state(canceled_trip)
+        })
+        conn.commit()
+        return jsonify(success=True, status='canceled')
+    finally:
+        conn.close()
+
+
+@app.route('/api/driver-trips/<int:trip_id>/history')
+def get_driver_trip_history(trip_id):
+    if not session.get('logged_in'):
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        trip_exists = conn.execute('SELECT 1 FROM driver_trips WHERE id = ?', (trip_id,)).fetchone()
+        if not trip_exists:
+            return jsonify([]), 404
+        rows = conn.execute(
+            '''
+            SELECT id, trip_id, action, changed_by, changed_at, details_json
+            FROM driver_trip_history
+            WHERE trip_id = ?
+            ORDER BY id DESC
+            ''',
+            (trip_id,)
+        ).fetchall()
         data = []
         for row in rows:
             item = dict(row)

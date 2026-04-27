@@ -1592,32 +1592,42 @@
         `).join("");
     }
 
+    function normalizeSearchText(value) {
+        return (value || "")
+            .toString()
+            .toLowerCase()
+            .replace(/ё/g, "е")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function createDebounced(fn, wait = 120) {
+        let timer = null;
+        return (...args) => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => fn(...args), wait);
+        };
+    }
+
     function renderBookings() {
-        const q = (document.getElementById("filterInput").value || "").trim().toLowerCase();
+        const q = normalizeSearchText(document.getElementById("filterInput").value || "");
         const filterDateIso = normalizeDateToIso(listDateFilter.value);
         const list = document.getElementById("bookingList");
-        const normalize = (value) => (value || "").toString().toLowerCase().trim();
         const startsWithWord = (value, query) => {
-            const source = normalize(value);
+            const source = normalizeSearchText(value);
             if (!source || !query) return false;
             return source.split(/[\s,.;:|/-]+/).some((token) => token.startsWith(query));
         };
         const filtered = bookings
             .filter((b) => {
+                const byDate = !filterDateIso || b.meeting_date === filterDateIso;
+                if (!byDate) return false;
                 if (!q) return true;
                 const participantsText = Array.isArray(b.participants)
                     ? b.participants.map((person) => `${person.name} ${person.login}`).join(" ")
                     : "";
                 const fields = [b.booked_by, b.purpose, b.room_name, b.owner_username, participantsText];
-                const byWordStart = fields.some((field) => startsWithWord(field, q));
-                const byDate = !filterDateIso || b.meeting_date === filterDateIso;
-                if (!byDate) return false;
-                if (byWordStart) return true;
-                // Для более длинных запросов оставляем fallback по вхождению.
-                if (q.length >= 2) {
-                    return fields.some((field) => normalize(field).includes(q));
-                }
-                return q.length === 0;
+                return fields.some((field) => normalizeSearchText(field).includes(q) || startsWithWord(field, q));
             })
             .sort((a, b) => `${a.meeting_date} ${a.start_time}`.localeCompare(`${b.meeting_date} ${b.start_time}`));
         if (filterDateIso) {
@@ -2203,7 +2213,11 @@
         }
     });
 
-    document.getElementById("filterInput").addEventListener("input", renderBookings);
+    const bookingFilterInput = document.getElementById("filterInput");
+    const debouncedRenderBookings = createDebounced(renderBookings, 120);
+    ["input", "keyup", "change", "search"].forEach((eventName) => {
+        bookingFilterInput.addEventListener(eventName, debouncedRenderBookings);
+    });
     bindMaskedInput(dateInput, applyDateMask);
     bindMaskedInput(startInput, applyTimeMask);
     bindMaskedInput(endInput, applyTimeMask);

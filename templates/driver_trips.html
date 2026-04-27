@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервис водителей | РУП Белнипиэнергопром</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1c4f9c;
+            --primary-soft: #2a65c0;
+            --bg: #edf3fb;
+            --text: #1c2f4b;
+            --muted-text: #667f9f;
+            --border: #d8e2f0;
+            --card-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+        }
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.18) 0%, rgba(130, 230, 255, 0) 48%),
+                linear-gradient(180deg, rgba(8, 26, 72, 0.56) 0%, rgba(8, 26, 72, 0.66) 100%),
+                url("{{ url_for('project_asset', filename='back4.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: "Inter", sans-serif;
+            color: var(--text);
+        }
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(20, 42, 75, 0.06);
+        }
+        .logo img { height: 40px; width: auto; display: block; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .topbar-user { font-size: 15px; color: #4d678b; margin-right: 4px; }
+        .topbar-btn {
+            height: 40px;
+            border-radius: 10px !important;
+            padding: 0 16px !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .btn-outline-secondary {
+            color: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline-secondary:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-light:hover { background: var(--primary-soft); border-color: var(--primary-soft); color: #fff; }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: var(--primary-soft); border-color: var(--primary-soft); }
+        .main-container { margin: 0 auto; padding: 26px 0 34px; }
+        .hero-panel, .panel {
+            background: rgba(255, 255, 255, 0.84);
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            backdrop-filter: blur(3px);
+            box-shadow: var(--card-shadow);
+        }
+        .hero-panel { padding: 16px 18px; margin-bottom: 14px; }
+        .hero-title { margin: 0; font-size: 20px; font-weight: 700; color: #1e4f95; }
+        .hero-subtitle { margin: 6px 0 0; color: #5e7798; font-size: 14px; }
+        .panel { padding: 16px; }
+        .panel + .panel { margin-top: 14px; }
+        .panel-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dfe8f5;
+            flex-wrap: wrap;
+        }
+        .booking-layout {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .action-toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .action-toolbar .btn {
+            min-width: 180px;
+            height: 42px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 16px rgba(17, 46, 90, 0.14);
+        }
+        .action-toolbar .btn-primary,
+        .action-toolbar .btn-outline-secondary {
+            background: linear-gradient(180deg, #2a65c0 0%, #1c4f9c 100%);
+            border: 1px solid #1c4f9c;
+            color: #fff !important;
+        }
+        .action-toolbar .btn-primary:hover,
+        .action-toolbar .btn-outline-secondary:hover {
+            background: linear-gradient(180deg, #3372cf 0%, #245fb7 100%);
+            border-color: #245fb7;
+            color: #fff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(17, 46, 90, 0.2);
+        }
+        .section-title { margin: 0; font-size: 16px; font-weight: 700; color: #2a4f86; }
+        .section-subtitle { margin: 4px 0 0; color: #6d84a2; font-size: 13px; }
+        .booking-form { display: grid; gap: 12px; }
+        .field-block { display: grid; gap: 6px; }
+        .field-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #65809f;
+        }
+        .field-hint { margin: 2px 0 0; font-size: 12px; color: #6b84a2; }
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.14);
+        }
+        .form-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .helper-box {
+            border: 1px dashed #d2def0;
+            border-radius: 10px;
+            background: rgba(244, 248, 255, 0.75);
+            padding: 10px 12px;
+        }
+        .helper-title {
+            margin: 0 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #4f6f96;
+            letter-spacing: 0.03em;
+        }
+        .helper-list {
+            margin: 0;
+            padding-left: 18px;
+            color: #5e7798;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .schedule-search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            padding: 0 12px;
+            width: 100%;
+        }
+        .schedule-search-icon {
+            flex-shrink: 0;
+            color: #8aa1bf;
+            line-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .schedule-search-icon svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+        .schedule-search {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            width: 100%;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .schedule-search:focus { outline: none; }
+        .planner-wrap {
+            border: 1px solid rgba(205, 220, 243, 0.88);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.84);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 8px 22px rgba(21, 45, 84, 0.1);
+            padding: 12px;
+        }
+        .planner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            padding: 4px 2px 12px;
+            border-bottom: 1px solid #dfe8f5;
+        }
+        .planner-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #23487f;
+        }
+        .planner-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .planner-nav-btn {
+            min-width: 38px;
+            height: 34px;
+            border-radius: 9px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .planner-mode-btn {
+            height: 34px;
+            border-radius: 9px;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .planner-mode-btn.btn-outline-secondary {
+            background: #fff;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        .planner-mode-btn.btn-outline-secondary:hover {
+            background: #f2f7ff;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        .planner-mode-btn.btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .planner-mode-btn.btn-primary:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-soft);
+            color: #fff;
+        }
+        .planner-calendar { min-height: 520px; }
+        .fc .fc-toolbar { display: none !important; }
+        .fc-theme-standard .fc-scrollgrid {
+            border: 1px solid #d8e4f5;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .fc-theme-standard td, .fc-theme-standard th {
+            border-color: #e8eef8;
+            background: rgba(255, 255, 255, 0.96);
+        }
+        .fc-timegrid-slot {
+            height: 44px !important;
+        }
+        .fc-timegrid-slot-label-cushion {
+            color: #6783a6;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .fc-col-header-cell-cushion {
+            color: #2b4f80;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+        .fc .fc-day-today {
+            background: rgba(36, 92, 179, 0.06) !important;
+        }
+        .fc .fc-highlight {
+            background: rgba(36, 92, 179, 0.08) !important;
+        }
+        .fc .fc-daygrid-day-number {
+            color: #294d7c;
+            font-weight: 600;
+        }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+            color: #1f5cb5;
+        }
+        .fc .fc-day-other .fc-daygrid-day-number {
+            color: #98a8bd;
+        }
+        .fc .fc-daygrid-day-frame {
+            padding: 6px 8px;
+        }
+        .fc .fc-daygrid-day-events {
+            margin-top: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+        .planner-calendar .fc-daygrid-event.month-dot-event {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0;
+            min-height: 10px;
+        }
+        .planner-calendar .fc-daygrid-event.month-dot-event .fc-event-time,
+        .planner-calendar .fc-daygrid-event.month-dot-event .fc-event-title {
+            display: none !important;
+        }
+        .planner-calendar .fc-daygrid-event.month-dot-event .fc-daygrid-event-dot {
+            display: none !important;
+        }
+        .month-dot-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 1px 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid #d7e3f3;
+            box-shadow: 0 1px 2px rgba(13, 34, 66, 0.12);
+        }
+        .month-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 1px rgba(43, 79, 128, 0.28), 0 1px 3px rgba(13, 34, 66, 0.22);
+            flex-shrink: 0;
+        }
+        .month-dot-label {
+            font-size: 10px;
+            line-height: 1;
+            color: #36567f;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+        .fc .fc-timegrid-event {
+            min-height: 28px;
+            padding: 0;
+        }
+        .fc-event {
+            border: 1px solid var(--event-border, #2f61ad) !important;
+            border-radius: 6px !important;
+            background: var(--event-bg, linear-gradient(180deg, #2f67bc 0%, #2459a6 100%)) !important;
+            box-shadow: 0 3px 10px rgba(22, 63, 122, 0.2);
+            cursor: pointer;
+        }
+        .fc .fc-timegrid-event-harness {
+            margin-inline: 3px;
+        }
+        .fc .fc-timegrid-col-events {
+            margin: 0 2px;
+        }
+        .fc .fc-timegrid-event .fc-event-main-frame {
+            height: 100%;
+            min-height: 100%;
+        }
+        .fc .fc-timegrid-event {
+            border-radius: 8px !important;
+            overflow: hidden;
+        }
+        .fc .fc-event .fc-event-main {
+            background: var(--event-inner-bg, rgba(255, 255, 255, 0.08));
+            border-radius: 4px;
+            padding: 3px 5px;
+            overflow-x: hidden;
+            overflow-y: hidden;
+        }
+        .fc .fc-timegrid-event .booking-event-content {
+            font-size: 12px;
+            line-height: 1.25;
+            display: grid;
+            gap: 2px;
+        }
+        .fc .fc-timegrid-event .booking-event-line {
+            color: #f3f8ff;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .fc .fc-timegrid-event .booking-event-line strong {
+            color: #ffffff;
+            font-weight: 700;
+        }
+        .fc .fc-event:hover {
+            filter: brightness(1.06);
+        }
+        .fc-timegrid-now-indicator-line { border-color: #ef4452; }
+        .fc-timegrid-now-indicator-arrow { border-color: #ef4452; }
+        .trip-list { display: grid; gap: 8px; }
+        .trip-item {
+            border: 1px solid #dce5f1;
+            border-radius: 10px;
+            background: #f9fbff;
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+        .trip-item.active { border-color: #6f9dd6; box-shadow: 0 0 0 3px rgba(20, 64, 128, 0.12); }
+        .trip-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .trip-route { margin-top: 4px; color: #4d6689; font-size: 13px; }
+        .dot-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .dot-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #436081;
+            background: #f5f8fd;
+            border: 1px solid #dde8f6;
+            border-radius: 999px;
+            padding: 4px 10px;
+        }
+        .dot-legend { display: none; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .hint-text { margin: 0 0 10px; font-size: 13px; color: #6b84a2; }
+        .empty-note { color: #6a82a3; }
+        @media (max-width: 640px) {
+            .schedule-search-wrap { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" class="logo"><img src="{{ url_for('project_logo') }}" alt="Логотип РУП Белнипиэнергопром"></a>
+        <div class="topbar-actions">
+            <span class="topbar-user fw-medium text-muted">{{ user_display }}</span>
+            <a href="/" class="btn btn-outline-secondary btn-sm topbar-btn">К ресурсам</a>
+            <a href="/logout" class="btn btn-light btn-sm topbar-btn">Выход</a>
+        </div>
+    </div>
+</nav>
+
+<div class="main-container container">
+    <section class="hero-panel">
+        <h1 class="hero-title">Сервис водителей</h1>
+        <p class="hero-subtitle">Командировки за пределы г. Минска.</p>
+    </section>
+
+    <div class="booking-layout">
+        <div class="action-toolbar">
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#tripFormCollapse" aria-expanded="false" aria-controls="tripFormCollapse">
+                Добавить рейс
+            </button>
+        </div>
+
+        <div class="collapse" id="tripFormCollapse">
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="formTitle" class="section-title mb-0">Новый рейс</h2>
+                        <p id="formSubtitle" class="section-subtitle">Номер не указывается, только модель автомобиля (например: Geely Tugella).</p>
+                    </div>
+                </div>
+                <form id="tripForm" class="booking-form">
+                    <div class="field-block">
+                        <label class="field-label">Модель авто</label>
+                        <input id="vehicleModel" class="form-control" required placeholder="Например: Geely Tugella">
+                        <p class="field-hint">Номер авто не указывается.</p>
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Цвет авто</label>
+                        <input id="vehicleColor" type="color" class="form-control form-control-color" value="#1f77b4" title="Выберите цвет">
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Откуда</label>
+                        <input id="origin" class="form-control" value="РУП «Белнипиэнергопром»">
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Куда</label>
+                        <input id="destination" class="form-control" required placeholder="Например: Гродно">
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Дата выезда</label>
+                        <input id="tripDate" type="text" class="form-control" required placeholder="ДД.ММ.ГГГГ" inputmode="numeric">
+                        <p class="field-hint">Можно выбрать в календаре или ввести вручную: ДД.ММ.ГГГГ</p>
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Время выезда</label>
+                        <input id="departureTime" type="text" class="form-control" required placeholder="ЧЧ:ММ" inputmode="numeric">
+                        <p class="field-hint">Время можно ввести с клавиатуры в формате ЧЧ:ММ</p>
+                    </div>
+                    <div class="field-block">
+                        <label class="field-label">Описание (необязательно)</label>
+                        <input id="description" class="form-control" placeholder="Комментарий к рейсу">
+                    </div>
+                    <div class="form-actions">
+                        <button id="submitBtn" class="btn btn-primary" type="submit">Сохранить рейс</button>
+                        <button id="cancelTripBtn" class="btn btn-outline-danger d-none" type="button">Отменить рейс</button>
+                        <button id="historyBtn" class="btn btn-outline-secondary d-none" type="button">История изменений</button>
+                        <button id="cancelEditBtn" class="btn btn-outline-secondary d-none" type="button">Отменить редактирование</button>
+                    </div>
+                </form>
+                <div class="helper-box mt-3">
+                    <p class="helper-title">Как это работает</p>
+                    <ul class="helper-list">
+                        <li>Рейс сразу становится виден всем пользователям.</li>
+                        <li>Нельзя ставить для одного авто пересекающиеся по времени рейсы.</li>
+                        <li>Нельзя создавать или редактировать рейс на прошедшие дату и время.</li>
+                        <li>Отмененные администратором рейсы остаются в календаре и отмечаются оранжевым.</li>
+                        <li>Владелец может редактировать и отменять только свой рейс. Администратор может редактировать и отменять любые рейсы.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="section-title mb-0">График рейсов</h2>
+                <p class="section-subtitle">Все будущие и текущие рейсы в одном списке.</p>
+            </div>
+        </div>
+        <div class="schedule-search-wrap mb-3">
+            <span class="schedule-search-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                </svg>
+            </span>
+            <input id="filterInput" class="schedule-search" placeholder="Поиск: модель, маршрут, описание">
+        </div>
+        <p class="hint-text">Нажмите на событие в календаре, чтобы развернуть или скрыть подробности.</p>
+        <div class="dot-legend" id="dotLegend"></div>
+        <div class="planner-wrap">
+            <div class="planner-header">
+                <h3 id="plannerTitle" class="planner-title">Календарь рейсов</h3>
+                <div class="planner-controls">
+                    <button id="plannerPrevBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">◀</button>
+                    <button id="plannerMonthBtn" type="button" class="btn btn-outline-secondary btn-sm planner-mode-btn">Месяц</button>
+                    <button id="plannerNextBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">▶</button>
+                    <button id="plannerTodayBtn" type="button" class="btn btn-outline-secondary btn-sm planner-nav-btn">Сегодня</button>
+                </div>
+            </div>
+            <div id="plannerCalendar" class="planner-calendar"></div>
+        </div>
+    </section>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="confirmActionTitle">Подтверждение действия</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmActionText" class="mb-0 text-secondary">Вы уверены?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmActionOk">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="infoModalTitle">Сообщение</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="infoModalText" class="mb-0 text-secondary">Операция выполнена.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary d-none" id="infoModalHistoryBtn">История изменений</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Понятно</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="historyModalTitle">История изменений рейса</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyModalBody" class="text-secondary">Загрузка...</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const currentUser = {{ (user_login or '')|tojson }};
+    const canManageAllTrips = {{ 'true' if can_manage_all else 'false' }};
+    const tripForm = document.getElementById("tripForm");
+    const formTitle = document.getElementById("formTitle");
+    const formSubtitle = document.getElementById("formSubtitle");
+    const submitBtn = document.getElementById("submitBtn");
+    const cancelTripBtn = document.getElementById("cancelTripBtn");
+    const historyBtn = document.getElementById("historyBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const vehicleModelInput = document.getElementById("vehicleModel");
+    const vehicleColorInput = document.getElementById("vehicleColor");
+    const originInput = document.getElementById("origin");
+    const destinationInput = document.getElementById("destination");
+    const tripDateInput = document.getElementById("tripDate");
+    const departureTimeInput = document.getElementById("departureTime");
+    const descriptionInput = document.getElementById("description");
+    const filterInput = document.getElementById("filterInput");
+    const dotLegend = document.getElementById("dotLegend");
+    const plannerTitle = document.getElementById("plannerTitle");
+    const plannerPrevBtn = document.getElementById("plannerPrevBtn");
+    const plannerMonthBtn = document.getElementById("plannerMonthBtn");
+    const plannerNextBtn = document.getElementById("plannerNextBtn");
+    const plannerTodayBtn = document.getElementById("plannerTodayBtn");
+    const tripFormCollapseEl = document.getElementById("tripFormCollapse");
+    const confirmActionModalEl = document.getElementById("confirmActionModal");
+    const confirmActionTitleEl = document.getElementById("confirmActionTitle");
+    const confirmActionTextEl = document.getElementById("confirmActionText");
+    const confirmActionOkBtn = document.getElementById("confirmActionOk");
+    const infoModalEl = document.getElementById("infoModal");
+    const infoModalTitleEl = document.getElementById("infoModalTitle");
+    const infoModalTextEl = document.getElementById("infoModalText");
+    const infoModalHistoryBtn = document.getElementById("infoModalHistoryBtn");
+    const historyModalEl = document.getElementById("historyModal");
+    const historyModalTitleEl = document.getElementById("historyModalTitle");
+    const historyModalBodyEl = document.getElementById("historyModalBody");
+
+    let trips = [];
+    let plannerCalendar;
+    let plannerMode = "month";
+    let selectedTripId = null;
+    let selectedDate = "";
+    let tripFormCollapse;
+    let tripDatePicker;
+    let departureTimePicker;
+    let editTripId = null;
+    let confirmActionModal;
+    let confirmActionResolver = null;
+    let infoModal;
+    let infoHistoryHandler = null;
+    let historyModal;
+
+    function escapeHtml(value) {
+        return String(value || "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[char]));
+    }
+
+    function getTripColor(item) {
+        const color = String((item && item.vehicle_color) || "").trim();
+        return /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#1f77b4";
+    }
+
+    function formatRuDate(isoDate) {
+        const [year, month, day] = isoDate.split("-");
+        return `${day}.${month}.${year}`;
+    }
+
+    function adjustHexColor(hexColor, amount) {
+        const clean = String(hexColor || "").replace("#", "");
+        if (!/^[0-9a-fA-F]{6}$/.test(clean)) return "#1f77b4";
+        const value = Number.parseInt(clean, 16);
+        const r = Math.max(0, Math.min(255, (value >> 16) + amount));
+        const g = Math.max(0, Math.min(255, ((value >> 8) & 0x00ff) + amount));
+        const b = Math.max(0, Math.min(255, (value & 0x0000ff) + amount));
+        return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+    }
+
+    function getEventPalette(color) {
+        return {
+            start: adjustHexColor(color, 12),
+            end: adjustHexColor(color, -12),
+            border: adjustHexColor(color, -26)
+        };
+    }
+
+    function buildTripEndIso(item) {
+        const startIso = `${item.trip_date}T${item.departure_time}`;
+        const parsed = new Date(startIso);
+        if (Number.isNaN(parsed.getTime())) return startIso;
+        parsed.setHours(parsed.getHours() + 1);
+        const hh = String(parsed.getHours()).padStart(2, "0");
+        const mm = String(parsed.getMinutes()).padStart(2, "0");
+        return `${item.trip_date}T${hh}:${mm}`;
+    }
+
+    function applyDateMask(rawValue) {
+        const digits = String(rawValue || "").replace(/\D/g, "").slice(0, 8);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+        return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+    }
+
+    function applyTimeMask(rawValue) {
+        const digits = String(rawValue || "").replace(/\D/g, "").slice(0, 4);
+        if (digits.length <= 2) return digits;
+        return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    }
+
+    function ruDateToIso(ruDate) {
+        const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(ruDate || "").trim());
+        if (!match) return "";
+        const day = Number(match[1]);
+        const month = Number(match[2]);
+        const year = Number(match[3]);
+        const dateObj = new Date(year, month - 1, day);
+        if (
+            Number.isNaN(dateObj.getTime()) ||
+            dateObj.getFullYear() !== year ||
+            dateObj.getMonth() !== (month - 1) ||
+            dateObj.getDate() !== day
+        ) {
+            return "";
+        }
+        return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+
+    function normalizeTime(timeText) {
+        const match = /^(\d{2}):(\d{2})$/.exec(String(timeText || "").trim());
+        if (!match) return "";
+        const hh = Number(match[1]);
+        const mm = Number(match[2]);
+        if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+        return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
+
+    function updatePlannerHeader() {
+        const currentDate = plannerCalendar ? plannerCalendar.getDate() : new Date();
+        const monthLabel = currentDate.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+        const dayLabel = currentDate.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", weekday: "long" });
+        if (plannerMode === "month") {
+            plannerTitle.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+            plannerMonthBtn.classList.remove("btn-outline-secondary");
+            plannerMonthBtn.classList.add("btn-primary");
+        } else {
+            plannerTitle.textContent = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+            plannerMonthBtn.classList.remove("btn-primary");
+            plannerMonthBtn.classList.add("btn-outline-secondary");
+        }
+    }
+
+    function openDayView(isoDate) {
+        if (plannerCalendar) {
+            plannerMode = "day";
+            plannerCalendar.changeView("timeGridDay", isoDate);
+            updatePlannerHeader();
+        }
+    }
+
+    function canEditTrip(tripItem) {
+        if (!tripItem) return false;
+        if (tripItem.trip_status === "canceled") return false;
+        if (canManageAllTrips) return true;
+        const owner = (tripItem.owner_username || tripItem.created_by || "").toLowerCase();
+        return owner && owner === String(currentUser || "").toLowerCase();
+    }
+
+    function setFormMode(isEdit) {
+        if (isEdit) {
+            formTitle.textContent = "Редактирование рейса";
+            formSubtitle.textContent = "Доступно владельцу рейса и администратору.";
+            submitBtn.textContent = "Сохранить изменения";
+            cancelTripBtn.classList.remove("d-none");
+            historyBtn.classList.remove("d-none");
+            cancelEditBtn.classList.remove("d-none");
+            return;
+        }
+        formTitle.textContent = "Новый рейс";
+        formSubtitle.textContent = "Номер не указывается, только модель автомобиля (например: Geely Tugella).";
+        submitBtn.textContent = "Сохранить рейс";
+        cancelTripBtn.classList.add("d-none");
+        historyBtn.classList.add("d-none");
+        cancelEditBtn.classList.add("d-none");
+    }
+
+    function resetTripForm() {
+        editTripId = null;
+        tripForm.reset();
+        originInput.value = "РУП «Белнипиэнергопром»";
+        vehicleColorInput.value = "#1f77b4";
+        setFormMode(false);
+    }
+
+    function initModals() {
+        confirmActionModal = new bootstrap.Modal(confirmActionModalEl);
+        infoModal = new bootstrap.Modal(infoModalEl);
+        historyModal = new bootstrap.Modal(historyModalEl);
+        confirmActionOkBtn.addEventListener("click", () => {
+            if (confirmActionResolver) {
+                confirmActionResolver(true);
+                confirmActionResolver = null;
+            }
+            confirmActionModal.hide();
+        });
+        confirmActionModalEl.addEventListener("hidden.bs.modal", () => {
+            if (confirmActionResolver) {
+                confirmActionResolver(false);
+                confirmActionResolver = null;
+            }
+        });
+        infoModalHistoryBtn.addEventListener("click", () => {
+            const callback = infoHistoryHandler;
+            infoHistoryHandler = null;
+            infoModal.hide();
+            if (typeof callback === "function") {
+                callback();
+            }
+        });
+        infoModalEl.addEventListener("hidden.bs.modal", () => {
+            infoHistoryHandler = null;
+            infoModalHistoryBtn.classList.add("d-none");
+        });
+    }
+
+    function escapeHistoryValue(value) {
+        return escapeHtml(value === null || value === undefined || value === "" ? "—" : String(value));
+    }
+
+    function formatHistoryAction(action) {
+        if (action === "created") return "Создан";
+        if (action === "updated") return "Изменен";
+        if (action === "canceled") return "Отменен";
+        return action || "Действие";
+    }
+
+    function buildHistorySnapshotHtml(snapshot) {
+        if (!snapshot || typeof snapshot !== "object") return "<div>Данные отсутствуют.</div>";
+        return `
+            <div>Модель авто: <strong>${escapeHistoryValue(snapshot.vehicle_model)}</strong></div>
+            <div>Цвет: <strong>${escapeHistoryValue(snapshot.vehicle_color)}</strong></div>
+            <div>Дата: <strong>${escapeHistoryValue(snapshot.trip_date)}</strong></div>
+            <div>Время: <strong>${escapeHistoryValue(snapshot.departure_time)}</strong></div>
+            <div>Откуда: <strong>${escapeHistoryValue(snapshot.origin)}</strong></div>
+            <div>Куда: <strong>${escapeHistoryValue(snapshot.destination)}</strong></div>
+            <div>Описание: <strong>${escapeHistoryValue(snapshot.description)}</strong></div>
+            <div>Статус: <strong>${escapeHistoryValue(snapshot.trip_status)}</strong></div>
+        `;
+    }
+
+    async function openTripHistory(tripId) {
+        if (!tripId) return;
+        historyModalTitleEl.textContent = "История изменений рейса";
+        historyModalBodyEl.textContent = "Загрузка...";
+        historyModal.show();
+        const response = await fetch(`/api/driver-trips/${tripId}/history`);
+        if (!response.ok) {
+            historyModalBodyEl.textContent = "Не удалось загрузить историю.";
+            return;
+        }
+        const history = await response.json();
+        if (!Array.isArray(history) || !history.length) {
+            historyModalBodyEl.textContent = "История изменений пуста.";
+            return;
+        }
+        historyModalBodyEl.innerHTML = history.map((entry) => {
+            const details = entry.details || {};
+            const before = details.before || null;
+            const after = details.after || null;
+            return `
+                <div class="mb-3 pb-3 border-bottom">
+                    <div><strong>${escapeHtml(formatHistoryAction(entry.action))}</strong></div>
+                    <div class="small text-muted mb-2">Кто: ${escapeHistoryValue(entry.changed_by)} | Когда: ${escapeHistoryValue(entry.changed_at)}</div>
+                    ${before ? `<div class="small text-muted">Было:</div><div class="mb-2">${buildHistorySnapshotHtml(before)}</div>` : ""}
+                    ${after ? `<div class="small text-muted">Стало:</div><div>${buildHistorySnapshotHtml(after)}</div>` : ""}
+                </div>
+            `;
+        }).join("");
+    }
+
+    function showConfirm(message, title = "Подтверждение действия", actionText = "Подтвердить") {
+        confirmActionTitleEl.textContent = title;
+        confirmActionTextEl.textContent = message;
+        confirmActionOkBtn.textContent = actionText;
+        confirmActionModal.show();
+        return new Promise((resolve) => {
+            confirmActionResolver = resolve;
+        });
+    }
+
+    function showInfo(message, title = "Сообщение", historyText = "", onHistory = null) {
+        infoModalTitleEl.textContent = title;
+        infoModalTextEl.textContent = message;
+        if (historyText && typeof onHistory === "function") {
+            infoHistoryHandler = onHistory;
+            infoModalHistoryBtn.textContent = historyText;
+            infoModalHistoryBtn.classList.remove("d-none");
+        } else {
+            infoHistoryHandler = null;
+            infoModalHistoryBtn.classList.add("d-none");
+        }
+        infoModal.show();
+    }
+
+    function startEditTrip(tripId) {
+        const tripItem = trips.find((item) => Number(item.id) === Number(tripId));
+        if (!tripItem) return;
+        if (!canEditTrip(tripItem)) {
+            showInfo(
+                "Редактировать можно только активные рейсы.",
+                "Доступ ограничен",
+                "История изменений",
+                () => openTripHistory(tripId)
+            );
+            return;
+        }
+        editTripId = Number(tripItem.id);
+        vehicleModelInput.value = tripItem.vehicle_model || "";
+        vehicleColorInput.value = getTripColor(tripItem);
+        originInput.value = tripItem.origin || "РУП «Белнипиэнергопром»";
+        destinationInput.value = tripItem.destination || "";
+        tripDateInput.value = formatRuDate(tripItem.trip_date || "");
+        departureTimeInput.value = tripItem.departure_time || "";
+        descriptionInput.value = tripItem.description || "";
+        setFormMode(true);
+        tripFormCollapse.show();
+        tripFormCollapseEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function openMonthView() {
+        plannerMode = "month";
+        plannerCalendar.changeView("dayGridMonth");
+        updatePlannerHeader();
+    }
+
+    function renderLegend() {
+        const uniqueLegend = [];
+        const seen = new Set();
+        trips.forEach((item) => {
+            const model = (item.vehicle_model || "").trim();
+            const color = getTripColor(item);
+            const key = `${model}__${color}`;
+            if (!model || seen.has(key)) return;
+            seen.add(key);
+            uniqueLegend.push({ model, color });
+        });
+        if (!uniqueLegend.length) {
+            dotLegend.innerHTML = "";
+            return;
+        }
+        dotLegend.innerHTML = uniqueLegend.map((entry) => `
+            <span class="dot-item"><span class="dot" style="background:${entry.color}"></span>${escapeHtml(entry.model)}</span>
+        `).join("");
+    }
+
+    function normalizeSearchText(value) {
+        return (value || "")
+            .toString()
+            .toLowerCase()
+            .replace(/ё/g, "е")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function createDebounced(fn, wait = 120) {
+        let timer = null;
+        return (...args) => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => fn(...args), wait);
+        };
+    }
+
+    function getFilteredTrips() {
+        const q = normalizeSearchText(filterInput.value || "");
+        if (!q) return trips;
+        return trips.filter((item) => {
+            const haystack = [
+                item.vehicle_model,
+                item.trip_date,
+                item.departure_time,
+                item.origin,
+                item.destination,
+                item.description,
+                item.owner_username,
+                item.created_by,
+                `${item.origin || ""} ${item.destination || ""}`
+            ].join(" ");
+            return normalizeSearchText(haystack).includes(q);
+        });
+    }
+
+    function syncCalendarEvents() {
+        const dataset = getFilteredTrips();
+        plannerCalendar.removeAllEvents();
+        dataset.forEach((item) => {
+            const isMonthView = plannerMode === "month";
+            const isCanceled = String(item.trip_status || "active") === "canceled";
+            const color = isCanceled ? "#c9772b" : getTripColor(item);
+            const palette = getEventPalette(color);
+            plannerCalendar.addEvent({
+                id: String(item.id),
+                title: item.vehicle_model,
+                start: `${item.trip_date}T${item.departure_time}`,
+                end: isMonthView ? `${item.trip_date}T${item.departure_time}` : buildTripEndIso(item),
+                allDay: isMonthView,
+                display: isMonthView ? "list-item" : "block",
+                color,
+                classNames: [isMonthView ? "month-dot-event" : "day-card-event", isCanceled ? "trip-event-canceled" : ""],
+                extendedProps: {
+                    ...item,
+                    eventGradient: `linear-gradient(180deg, ${palette.start} 0%, ${palette.end} 100%)`,
+                    eventBorder: palette.border,
+                    eventInnerBg: "linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 100%)"
+                }
+            });
+        });
+    }
+
+    function initPlanner() {
+        const calendarEl = document.getElementById("plannerCalendar");
+        plannerCalendar = new FullCalendar.Calendar(calendarEl, {
+            locale: "ru",
+            initialView: "dayGridMonth",
+            nowIndicator: true,
+            allDaySlot: false,
+            slotEventOverlap: false,
+            height: "auto",
+            expandRows: true,
+            slotMinTime: "06:00:00",
+            slotMaxTime: "23:00:00",
+            slotDuration: "00:30:00",
+            headerToolbar: false,
+            eventClick: (info) => {
+                info.jsEvent.preventDefault();
+                if (plannerMode === "month") {
+                    openDayView(info.event.startStr.slice(0, 10));
+                    return;
+                }
+                selectedTripId = Number(info.event.id);
+                startEditTrip(Number(info.event.id));
+            },
+            dateClick: (info) => {
+                const clickedDate = info.dateStr.slice(0, 10);
+                if (plannerMode === "month") {
+                    openDayView(clickedDate);
+                } else {
+                    tripDateInput.value = formatRuDate(clickedDate);
+                    tripFormCollapse.show();
+                }
+            },
+            datesSet: () => {
+                syncCalendarEvents();
+                updatePlannerHeader();
+            },
+            eventContent: (info) => {
+                const isMonthView = info.view && info.view.type === "dayGridMonth";
+                if (isMonthView) {
+                    const ext = info.event.extendedProps || {};
+                    const chip = document.createElement("span");
+                    chip.className = "month-dot-chip";
+                    chip.title = `${ext.vehicle_model || "Авто"} • ${ext.departure_time || ""}`.trim();
+                    chip.setAttribute("aria-label", ext.vehicle_model || "Авто");
+                    const dot = document.createElement("span");
+                    dot.className = "month-dot";
+                    dot.style.background = getTripColor(ext);
+                    const label = document.createElement("span");
+                    label.className = "month-dot-label";
+                    label.textContent = String(ext.vehicle_model || "").trim();
+                    chip.appendChild(dot);
+                    chip.appendChild(label);
+                    return { domNodes: [chip] };
+                }
+                const data = info.event.extendedProps || {};
+                const content = document.createElement("div");
+                content.className = "booking-event-content";
+                content.innerHTML = `
+                    ${data.trip_status === "canceled" ? '<div class="booking-event-line"><strong>ОТМЕНЕН</strong></div>' : ""}
+                    <div class="booking-event-line"><strong>${escapeHtml(data.departure_time || "")}</strong></div>
+                    <div class="booking-event-line"><strong>${escapeHtml(data.vehicle_model || "")}</strong></div>
+                    <div class="booking-event-line">${escapeHtml(data.origin || "")} -> ${escapeHtml(data.destination || "")}</div>
+                    ${data.description ? `<div class="booking-event-line">${escapeHtml(data.description)}</div>` : ""}
+                `;
+                return { domNodes: [content] };
+            },
+            eventDidMount: (info) => {
+                const gradient = info.event.extendedProps.eventGradient;
+                const border = info.event.extendedProps.eventBorder;
+                const innerBg = info.event.extendedProps.eventInnerBg;
+                if (gradient) info.el.style.setProperty("--event-bg", gradient);
+                if (border) info.el.style.setProperty("--event-border", border);
+                if (innerBg) info.el.style.setProperty("--event-inner-bg", innerBg);
+            }
+        });
+        plannerCalendar.render();
+        updatePlannerHeader();
+    }
+
+    function initCollapses() {
+        tripFormCollapse = bootstrap.Collapse.getOrCreateInstance(tripFormCollapseEl, { toggle: false });
+    }
+
+    function initPickers() {
+        flatpickr.localize(flatpickr.l10ns.ru);
+        tripDatePicker = flatpickr(tripDateInput, {
+            dateFormat: "d.m.Y",
+            allowInput: true,
+            locale: "ru",
+            position: "auto center",
+            minDate: "today",
+            disableMobile: true
+        });
+        departureTimePicker = flatpickr(departureTimeInput, {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            allowInput: true,
+            time_24hr: true,
+            minuteIncrement: 5,
+            position: "auto center",
+            disableMobile: true
+        });
+    }
+
+    async function loadTrips() {
+        const response = await fetch("/api/driver-trips");
+        if (!response.ok) return;
+        trips = await response.json();
+        renderLegend();
+        syncCalendarEvents();
+    }
+
+    async function createTrip(event) {
+        event.preventDefault();
+        const tripDateRu = tripDateInput.value.trim();
+        const departureTimeRaw = departureTimeInput.value.trim();
+        const tripDateIso = ruDateToIso(tripDateRu);
+        const departureTime = normalizeTime(departureTimeRaw);
+        if (!tripDateIso) {
+            showInfo("Введите корректную дату в формате ДД.ММ.ГГГГ", "Ошибка валидации");
+            return;
+        }
+        if (!departureTime) {
+            showInfo("Введите корректное время в формате ЧЧ:ММ", "Ошибка валидации");
+            return;
+        }
+        const payload = {
+            vehicle_model: vehicleModelInput.value.trim(),
+            vehicle_color: vehicleColorInput.value,
+            trip_date: tripDateIso,
+            departure_time: departureTime,
+            origin: originInput.value.trim() || "РУП «Белнипиэнергопром»",
+            destination: destinationInput.value.trim(),
+            description: descriptionInput.value.trim()
+        };
+        const isEdit = Number.isInteger(editTripId);
+        const response = await fetch(isEdit ? `/api/driver-trips/${editTripId}` : "/api/driver-trips", {
+            method: isEdit ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            showInfo(result.error || "Не удалось сохранить рейс", "Ошибка");
+            return;
+        }
+        resetTripForm();
+        await loadTrips();
+    }
+
+    async function cancelTrip() {
+        if (!Number.isInteger(editTripId)) return;
+        const confirmed = await showConfirm(
+            "Отменить выбранный рейс? Он останется в календаре и будет отмечен оранжевым.",
+            "Отмена рейса",
+            "Отменить"
+        );
+        if (!confirmed) return;
+        const response = await fetch(`/api/driver-trips/${editTripId}`, { method: "DELETE" });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            showInfo(result.error || "Не удалось отменить рейс", "Ошибка");
+            return;
+        }
+        resetTripForm();
+        await loadTrips();
+    }
+
+    plannerPrevBtn.addEventListener("click", () => {
+        if (plannerMode === "month") plannerCalendar.prev();
+        else plannerCalendar.prev();
+        updatePlannerHeader();
+        if (plannerMode === "day") {
+            selectedDate = plannerCalendar.getDate().toISOString().slice(0, 10);
+        }
+    });
+    plannerNextBtn.addEventListener("click", () => {
+        if (plannerMode === "month") plannerCalendar.next();
+        else plannerCalendar.next();
+        updatePlannerHeader();
+        if (plannerMode === "day") {
+            selectedDate = plannerCalendar.getDate().toISOString().slice(0, 10);
+        }
+    });
+    plannerTodayBtn.addEventListener("click", () => {
+        plannerCalendar.today();
+        if (plannerMode === "month") {
+            plannerCalendar.changeView("dayGridMonth");
+        } else {
+            plannerCalendar.changeView("timeGridDay");
+        }
+        updatePlannerHeader();
+    });
+    plannerMonthBtn.addEventListener("click", openMonthView);
+    const debouncedSyncCalendarEvents = createDebounced(syncCalendarEvents, 120);
+    ["input", "keyup", "change", "search"].forEach((eventName) => {
+        filterInput.addEventListener(eventName, () => {
+            debouncedSyncCalendarEvents();
+        });
+    });
+    cancelTripBtn.addEventListener("click", cancelTrip);
+    historyBtn.addEventListener("click", () => openTripHistory(editTripId));
+    cancelEditBtn.addEventListener("click", resetTripForm);
+
+    window.addEventListener("DOMContentLoaded", async () => {
+        initModals();
+        initCollapses();
+        initPickers();
+        initPlanner();
+        tripForm.addEventListener("submit", createTrip);
+        tripDateInput.addEventListener("input", () => {
+            tripDateInput.value = applyDateMask(tripDateInput.value);
+        });
+        departureTimeInput.addEventListener("input", () => {
+            departureTimeInput.value = applyTimeMask(departureTimeInput.value);
+        });
+        resetTripForm();
+        await loadTrips();
+    });
+</script>
+</body>
+</html>
