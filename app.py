@@ -3,6 +3,8 @@ import os
 import collections
 import re
 import json
+import hmac
+import hashlib
 import time
 import threading
 import calendar
@@ -12,6 +14,7 @@ from email.utils import format_datetime
 from email.header import Header
 from email import policy
 from urllib.parse import urlparse
+from urllib.parse import urlencode
 from datetime import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
@@ -97,6 +100,8 @@ KNOWLEDGE_BASE_INSTRUCTIONS_DIR = os.environ.get(
     'KNOWLEDGE_BASE_INSTRUCTIONS_DIR',
     KNOWLEDGE_BASE_ROOT
 )
+AI_ASSISTANT_URL = os.environ.get('AI_ASSISTANT_URL', 'http://localhost:5000/sso-login')
+AI_SSO_SHARED_SECRET = os.environ.get('AI_SSO_SHARED_SECRET', 'change-this-ai-sso-secret')
 
 
 def normalize_resource_url(raw_url):
@@ -447,6 +452,30 @@ def can_manage_resources(username):
     return _has_privileged_entity_access(login, 'resource_privileged_entities')
 
 
+def can_use_ai_assistant(username):
+    login = normalize_ad_username(username)
+    if not login:
+        return False
+    if login in MASTER_ADMINS:
+        return True
+    return _has_privileged_entity_access(login, 'ai_privileged_entities')
+
+
+def _build_ai_sso_url(username, display_name):
+    login = normalize_ad_username(username)
+    display = (display_name or login or '').strip()
+    ts = str(int(time.time()))
+    payload = f'{login}|{display}|{ts}'
+    signature = hmac.new(
+        AI_SSO_SHARED_SECRET.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    query = urlencode({'u': login, 'd': display, 'ts': ts, 'sig': signature})
+    separator = '&' if '?' in AI_ASSISTANT_URL else '?'
+    return f'{AI_ASSISTANT_URL}{separator}{query}'
+
+
 def _knowledge_base_collect_categories():
     categories = []
     base_path = os.path.realpath(KNOWLEDGE_BASE_INSTRUCTIONS_DIR)
@@ -633,6 +662,12 @@ def init_db():
                 entity_login TEXT NOT NULL,
                 PRIMARY KEY (entity_type, entity_login)
             )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS ai_privileged_entities (
+                entity_type TEXT NOT NULL,
+                entity_login TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_login)
+            )''')
         # Миграция старого формата (только пользователи) в новый универсальный справочник.
         legacy_rows = conn.execute('SELECT username FROM phonebook_privileged_users').fetchall()
         for row in legacy_rows:
@@ -701,6 +736,22 @@ def init_db():
                     '/driver-trips',
                     'Сервисы',
                     'Рейсы и командировки водителей за пределы г. Минска',
+                    0
+                )
+            )
+            conn.execute('INSERT OR IGNORE INTO categories (name) VALUES (?)', ('Сервисы',))
+        ai_resource_exists = conn.execute(
+            'SELECT 1 FROM resources WHERE TRIM(url) = ? LIMIT 1',
+            ('/ai-assistant',)
+        ).fetchone()
+        if not ai_resource_exists:
+            conn.execute(
+                'INSERT INTO resources (title, url, category, desc, position) VALUES (?, ?, ?, ?, ?)',
+                (
+                    'БелнипиAI',
+                    '/ai-assistant',
+                    'Сервисы',
+                    'Интеллектуальный помощник по документам и вопросам',
                     0
                 )
             )
@@ -884,6 +935,17 @@ def knowledge_base_page():
         user=session.get('username'),
         categories=categories
     )
+
+
+@app.route('/ai-assistant')
+def ai_assistant_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login_page'))
+    username = session.get('username')
+    if not can_use_ai_assistant(username):
+        return redirect(url_for('index'))
+    redirect_url = _build_ai_sso_url(username, session.get('display_name') or username)
+    return redirect(redirect_url, code=302)
 
 
 @app.route('/tabel')
@@ -2400,6 +2462,59 @@ def manage_resource_access():
         else:
             conn.execute(
                 'DELETE FROM resource_privileged_entities WHERE entity_type = ? AND entity_login = ?',
+                (entity_type, entity_login)
+            )
+        conn.commit()
+        return jsonify(success=True)
+    finally:
+        conn.close()
+
+
+@app.route('/api/ai-access')
+def get_ai_access_entities():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify([]), 403
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            '''
+            SELECT entity_type, entity_login
+            FROM ai_privileged_entities
+            ORDER BY entity_type ASC, entity_login COLLATE NOCASE
+            '''
+        ).fetchall()
+        return jsonify([{'type': row['entity_type'], 'login': row['entity_login']} for row in rows])
+    finally:
+        conn.close()
+
+
+@app.route('/manage_ai_access', methods=['POST'])
+def manage_ai_access():
+    if session.get('username') not in MASTER_ADMINS:
+        return jsonify(success=False), 403
+    payload = request.json or {}
+    action = (payload.get('action') or '').strip()
+    entity_type = (payload.get('type') or 'user').strip().lower()
+    raw_login = payload.get('username')
+    if entity_type == 'group':
+        entity_login = str(raw_login or '').strip().lower()
+    else:
+        entity_type = 'user'
+        entity_login = normalize_ad_username(raw_login)
+    if action not in ('add', 'delete'):
+        return jsonify(success=False, error='Неизвестное действие'), 400
+    if not entity_login:
+        return jsonify(success=False, error='Укажите пользователя или группу'), 400
+    conn = get_db_connection()
+    try:
+        if action == 'add':
+            conn.execute(
+                'INSERT OR IGNORE INTO ai_privileged_entities (entity_type, entity_login) VALUES (?, ?)',
+                (entity_type, entity_login)
+            )
+        else:
+            conn.execute(
+                'DELETE FROM ai_privileged_entities WHERE entity_type = ? AND entity_login = ?',
                 (entity_type, entity_login)
             )
         conn.commit()
